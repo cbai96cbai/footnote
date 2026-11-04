@@ -43,6 +43,8 @@ section.system { background: var(--card); border: 1px solid var(--line); border-
 .badge.incorrect, .badge.error { color: var(--bad); border-color: var(--bad); }
 blockquote { margin: .75rem 0; padding: .25rem 0 .25rem .9rem; border-left: 3px solid var(--line); }
 blockquote footer { color: var(--muted); font-size: .85rem; }
+.unconfirmed { margin: .75rem 0; padding: .25rem 0 .25rem .9rem; border-left: 3px solid var(--bad); }
+.unconfirmed > p:first-child { color: var(--bad); }
 mark { background: var(--mark); color: inherit; padding: 0 .15em; }
 details { margin-top: .75rem; }
 summary { cursor: pointer; color: var(--accent); }

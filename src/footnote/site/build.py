@@ -13,6 +13,7 @@ from footnote.site import filters
 from footnote.site.chart import Bar, accuracy_chart
 from footnote.site.links import edgar_fallback, load_link_status
 from footnote.site.output import MARKER, replace_output
+from footnote.site.paired import Difference, paired_differences
 from footnote.site.runs import Run, load_runs, split_runs
 
 __all__ = ["MARKER", "build_site"]
@@ -36,6 +37,8 @@ def _env() -> Environment:
     )
     env.filters["excerpt"] = filters.excerpt
     env.filters["step_arguments"] = filters.step_arguments
+    env.filters["quote_missing"] = filters.quote_missing
+    env.filters["difference"] = filters.difference
     env.filters["pct"] = filters.pct
     env.filters["usd"] = filters.usd
     env.filters["seconds"] = filters.seconds
@@ -50,7 +53,7 @@ def _chart(runs: list[Run], title: str) -> Any:
     bars = []
     for r in runs:
         ci = r.summary.get("ci95")
-        bars.append(Bar(r.label, r.summary.get("accuracy"), *(ci if ci else (None, None))))
+        bars.append(Bar(r.display_label, r.summary.get("accuracy"), *(ci if ci else (None, None))))
     return accuracy_chart(bars, title)
 
 
@@ -61,7 +64,7 @@ def _question_page(
     for r in runs:
         p, v = r.predictions.get(q.id), r.verdicts.get(q.id)
         if p is not None and v is not None:
-            entries.append({"run": r, "label": r.label, "pred": p, "verdict": v})
+            entries.append({"run": r, "label": r.display_label, "pred": p, "verdict": v})
     return {
         "q": q,
         "gold": gold,
@@ -107,9 +110,12 @@ def build_site(
     kept = set(curated([f.get("id", "") for f in failure_list]))
     failure_items = [{**f, "page": pages[f["id"]]} for f in failure_list if f.get("id") in kept]
 
+    paired = paired_differences(test, by_id)
     replace_output(
         out_dir,
-        lambda target: _write_pages(target, test, dev, pages, featured_pages, failure_items),
+        lambda target: _write_pages(
+            target, test, dev, paired, pages, featured_pages, failure_items
+        ),
     )
 
 
@@ -117,6 +123,7 @@ def _write_pages(
     out_dir: Path,
     test: list[Run],
     dev: list[Run],
+    paired: dict[str, Difference | None] | None,
     pages: dict[str, dict[str, Any]],
     featured_pages: list[dict[str, Any]],
     failure_items: list[dict[str, Any]],
@@ -135,6 +142,7 @@ def _write_pages(
         "",
         test=test,
         dev=dev,
+        paired=paired,
         test_chart=_chart(test, "Accuracy on the test split") if test else None,
         dev_chart=_chart(dev, "Accuracy on development runs") if dev else None,
         paper=PAPER,

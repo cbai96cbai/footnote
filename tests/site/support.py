@@ -35,7 +35,14 @@ LINKS: dict[str, Any] = {
 }
 
 
-def prediction(q: AgentQuestion, system: str, quote: str = LONG, page_index: int = 4) -> Prediction:
+def prediction(
+    q: AgentQuestion,
+    system: str,
+    quote: str = LONG,
+    page_index: int = 4,
+    verify_ok: bool | None = True,
+    problems: list[str] | None = None,
+) -> Prediction:
     ans = AgentAnswer(
         answer=f"{system} answer",
         final_value=None,
@@ -45,7 +52,9 @@ def prediction(q: AgentQuestion, system: str, quote: str = LONG, page_index: int
     )
     step = Step("read_page", {"page_index": 4}, LONG, U)
     step2 = Step("search", {"query": "revenue"}, "found 3 pages", U)
-    return Prediction(q.id, system, "v1", ans, "answered", True, [], [step, step2], U, 2.5, [4])
+    return Prediction(
+        q.id, system, "v1", ans, "answered", verify_ok, problems or [], [step, step2], U, 2.5, [4]
+    )
 
 
 def write_run(
@@ -56,19 +65,23 @@ def write_run(
     ids: list[Any],
     quote: str = LONG,
     page_index: int = 4,
+    verify_ok: bool | None = True,
+    problems: list[str] | None = None,
+    version: str = "v1",
+    labels: list[str] | None = None,
 ) -> None:
     run = root / run_id
     qs = [q for q in ids if not isinstance(q, str)] or [q for q in QUESTIONS if q.id in ids]
     for i, q in enumerate(qs):
-        append_prediction(run, prediction(q, system, quote, page_index))
-        label = "correct" if i % 2 == 0 else "incorrect"
+        append_prediction(run, prediction(q, system, quote, page_index, verify_ok, problems))
+        label = labels[i] if labels else ("correct" if i % 2 == 0 else "incorrect")
         append_verdict(run, Verdict(q.id, label, "numeric", "r", U))  # type: ignore[arg-type]
     n = len(qs)
     (run / "summary.json").write_text(
         json.dumps(
             {
                 "system": system,
-                "version": "v1",
+                "version": version,
                 "split": split,
                 "n": n,
                 "correct": (n + 1) // 2,

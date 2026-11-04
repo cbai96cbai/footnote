@@ -23,10 +23,25 @@
   {% endif %}
   <p class="muted">Grader ({{ e.verdict.method }}): {{ e.verdict.rationale|excerpt }}</p>
   {% if p.answer and p.status != "declined" and not p.answer.declined %}
+  {% if p.verify_ok is true %}
+  <p class="muted">Quote check: passed. The code found each quote on its cited page.</p>
   {% for c in p.answer.citations %}
   <blockquote><mark>{{ c.quote|excerpt }}</mark>
     <footer>page {{ c.page_index + 1 }} of the benchmark PDF, {{ doc.doc_name }}</footer></blockquote>
   {% endfor %}
+  {% elif p.verify_ok is false %}
+  <div class="unconfirmed">
+    <p>{% if p.verify_problems|quote_missing %}Quote not found in the filing.{% else %}Citation check failed.{% endif %}
+    The code could not confirm this answer's citations, so they are not shown as text from the filing.</p>
+    <ul class="plain muted">
+    {% for problem in p.verify_problems %}
+      <li>{{ problem|excerpt(200) }}</li>
+    {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <p class="muted">Quote check: not checked. This system's citations were not compared with the filing, so none are shown.</p>
+  {% endif %}
   {% endif %}
   {% if p.trace %}
   <details>

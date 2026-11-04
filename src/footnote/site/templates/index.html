@@ -3,21 +3,25 @@
 {% block title %}Footnote: results{% endblock %}
 {% block content %}
 <h1>Footnote</h1>
-<p class="lede">An agent that answers questions about SEC filings and shows where each number came
-from. It is scored against baselines that use the same model, on the FinanceBench open sample.
+<p class="lede">An agent that answers questions about SEC filings and cites the quotes behind its answers.
+Code confirms the quotes appear on the cited pages and that the final number comes from them. It is scored against baselines that use the same model, on the FinanceBench open sample.
 Intervals resample whole companies, because questions about one company are not independent.</p>
 
 {% if test %}
 <h2>Test split</h2>
 <p>Each system family was run once on the held-out companies.</p>
 {{ test_chart }}
-{{ runs_table(test, false) }}
+{{ runs_table(test, false, paired) }}
+{% if paired is not none %}
+<p class="muted">The paired difference is the agent's accuracy minus the other system's on the questions both were graded on, in percentage points. Its interval resamples whole companies, the same companies for both systems.</p>
+{% endif %}
 {% endif %}
 
 {% if dev %}
-<h2>Development runs (exploratory)</h2>
+<h2>Exploratory development runs, by version</h2>
 <p>{% if not test %}No test-split run has been published yet. {% endif %}These runs guided
-development, so they are not evidence of how the systems compare on unseen companies.</p>
+development, so they are not evidence of how the systems compare on unseen companies. The
+chart and table list each published version of a system separately.</p>
 {{ dev_chart }}
 {{ runs_table(dev, true) }}
 {% endif %}
@@ -32,7 +36,7 @@ Coverage is the share of questions answered rather than declined. Cost includes 
 <h2>Historical context</h2>
 <p>The FinanceBench paper (Islam et al., 2023, arXiv:2311.11944) reported these accuracies for
 GPT-4-Turbo, graded by humans on November 2023 models. They are not comparable with the numbers
-above: different models, different grading, different question subset.</p>
+above: different models, human grading instead of code and model grading, and different retrieval setups.</p>
 <ul class="plain">
 {% for name, value in paper %}
   <li>{{ name }}: {{ value }}%</li>

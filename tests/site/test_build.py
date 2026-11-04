@@ -24,9 +24,10 @@ def test_every_document_string_through_excerpt_filter(
     assert "word " * 100 not in html  # nothing near the 1500-character originals
     for text in re.findall(r"<(?:mark|blockquote|p)[^>]*>([^<]*)<", html):
         assert len(text) <= EXCERPT_LIMIT + 5
-    assert len(excerpt("x" * 1000)) <= EXCERPT_LIMIT + 1
+    assert len(excerpt("x" * 1000)) <= EXCERPT_LIMIT
+    assert len(excerpt("x" * 400)) == 400 and len(excerpt("x " * 400)) <= EXCERPT_LIMIT
     assert excerpt("short") == "short"
-    assert len(excerpt("y" * 1000, 200)) <= 201
+    assert len(excerpt("y" * 1000, 200)) <= 200
 
 
 def test_trace_has_no_raw_page_text(results: Path, tmp_path: Path, inject: dict[str, Any]) -> None:
@@ -94,7 +95,7 @@ def test_pages_exist_and_labels(results: Path, tmp_path: Path, inject: dict[str,
         assert (out / name).exists()
     index = (out / "index.html").read_text()
     assert "without documents" in index.lower()
-    assert "development runs (exploratory)" in index.lower()
+    assert "exploratory development runs" in index.lower()
     assert "historical context" in index.lower() and "85%" in index
     assert "<svg" in index
     about = (out / "about.html").read_text()

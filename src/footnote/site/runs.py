@@ -23,6 +23,7 @@ class Run:
     run_id: str
     system: str
     split: str
+    version: str
     summary: dict[str, Any]
     predictions: dict[str, Prediction]
     verdicts: dict[str, Verdict]
@@ -30,6 +31,11 @@ class Run:
     @property
     def label(self) -> str:
         return LABELS.get(self.system, self.system)
+
+    @property
+    def display_label(self) -> str:
+        """The label, with the version for exploratory runs (several may exist per system)."""
+        return self.label if self.split == "test" else f"{self.label} {self.version}"
 
 
 def _order(system: str) -> tuple[int, str]:
@@ -47,8 +53,13 @@ def _published_ids(results_dir: Path) -> list[str]:
 
 
 def load_runs(results_dir: Path) -> list[Run]:
-    """The runs listed in published.json, in display order; none if it is absent or empty."""
-    runs: dict[tuple[str, str], Run] = {}
+    """The runs listed in published.json, in display order; none if it is absent or empty.
+
+    A test run is unique per system. Other runs are unique per (system, version, split) and
+    keep their published order within a system.
+    """
+    runs: list[Run] = []
+    seen: dict[tuple[str, ...], str] = {}
     for run_id in _published_ids(results_dir):
         summary_file = results_dir / run_id / "summary.json"
         if not summary_file.is_file():
@@ -59,15 +70,19 @@ def load_runs(results_dir: Path) -> list[Run]:
                 f"published run {run_id} is not complete (summary.json complete: false)"
             )
         d = results_dir / run_id
-        run = Run(run_id, s["system"], s["split"], s, read_predictions(d), read_verdicts(d))
-        key = (run.system, run.split)
-        if key in runs:
+        version = str(s.get("version", ""))
+        run = Run(
+            run_id, s["system"], s["split"], version, s, read_predictions(d), read_verdicts(d)
+        )
+        key = (run.system, run.split) if run.split == "test" else (run.system, run.split, version)
+        if key in seen:
             raise ValueError(
-                f"published.json lists two runs for {run.system}/{run.split}: "
-                f"{runs[key].run_id} and {run_id}"
+                f"published.json lists two runs for {' / '.join(key)}: {seen[key]} and {run_id}"
             )
-        runs[key] = run
-    return sorted(runs.values(), key=lambda r: (_order(r.system), r.split))
+        seen[key] = run_id
+        runs.append(run)
+    # sorted() is stable, so published order is kept within a system and split
+    return sorted(runs, key=lambda r: (_order(r.system), r.split))
 
 
 def split_runs(runs: list[Run]) -> tuple[list[Run], list[Run]]:

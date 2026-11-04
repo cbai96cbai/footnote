@@ -1,10 +1,13 @@
-{% macro runs_table(runs, show_split) %}
+{% macro runs_table(runs, show_split, paired=none) %}
 <div class="scroll">
 <table>
   <thead>
     <tr>
-      <th>System</th>{% if show_split %}<th>Split</th>{% endif %}
+      <th>System</th>{% if show_split %}<th>Version</th><th>Split</th>{% endif %}
       <th class="num">Accuracy (95% interval)</th>
+{% if paired is not none %}
+      <th class="num">Agent minus this system (paired 95% interval)</th>
+{% endif %}
       <th class="num">Graded</th>
       <th class="num">Coverage</th>
       <th class="num">Cost / question</th>
@@ -16,8 +19,11 @@
     {% set s = r.summary %}
     <tr>
       <td>{{ r.label }}<br><span class="muted">{{ r.run_id }}</span></td>
-      {% if show_split %}<td>{{ r.split }}</td>{% endif %}
+      {% if show_split %}<td>{{ r.version }}</td><td>{{ r.split }}</td>{% endif %}
       <td class="num">{{ s.get("accuracy")|pct }}{% if s.get("ci95") %} <span class="muted">({{ s["ci95"][0]|pct }} to {{ s["ci95"][1]|pct }})</span>{% endif %}</td>
+{% if paired is not none %}
+      <td class="num">{% if r.run_id in paired %}{{ paired[r.run_id]|difference }}{% else %}reference{% endif %}</td>
+{% endif %}
       <td class="num">{{ s.get("n_graded", "n/a") }}/{{ s.get("n", "n/a") }}</td>
       <td class="num">{{ s.get("coverage")|pct }}</td>
       <td class="num">{{ s.get("cost_per_question")|usd }}</td>
