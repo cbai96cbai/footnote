@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,7 @@ def setup(tmp_path: Path, runner: Any, family: str = "fake") -> dict[str, Any]:
         settings=Settings(grader_deployment="grader-x"),
         questions=QS,
         gold=GOLD,
+        pages_loader=lambda doc: {0: "page"},
         split_ids={"dev": [q.id for q in QS], "test": [q.id for q in QS], "gate": []},
     )
 
@@ -230,3 +232,34 @@ def test_incomplete_test_run_stays_started_and_config_change_refused(tmp_path: P
     register_system("fake", lambda q, c: prediction(q), MAX_Q, {"version": "1", "prompt": "new"})
     with pytest.raises(TestRunRefused):
         run_eval("fake", "test", "t1", **kw)
+
+
+def test_unverified_answers_are_verified_agent_ones_left_alone(tmp_path: Path) -> None:
+    def runner(q: AgentQuestion, client: Any) -> Prediction:
+        p = prediction(q)
+        if q.id == "q1":
+            return replace(p, verify_ok=True, verify_problems=["agent's own"])
+        if q.id == "q2":
+            return prediction(q, "declined")
+        assert p.answer is not None
+        bad = p.answer.model_copy(update={"answer": "It was 777.", "citations": []})
+        return replace(p, answer=bad) if q.id == "q3" else p
+
+    kw = setup(tmp_path, runner)
+    run_eval("fake", "dev", "r1", **kw)
+    by_id = {r["question_id"]: r for r in lines(tmp_path / "results" / "r1" / "predictions.jsonl")}
+    assert by_id["q0"]["verify_ok"] is True and by_id["q0"]["verify_problems"] == []
+    assert by_id["q1"]["verify_ok"] is True and by_id["q1"]["verify_problems"] == ["agent's own"]
+    assert by_id["q2"]["verify_ok"] is None
+    assert by_id["q3"]["verify_ok"] is False and "777" in by_id["q3"]["verify_problems"][0]
+
+
+def test_missing_filing_pages_recorded_as_failed_verification(tmp_path: Path) -> None:
+    def broken(doc: str) -> dict[int, str]:
+        raise FileNotFoundError(doc)
+
+    kw = setup(tmp_path, lambda q, c: prediction(q))
+    kw["pages_loader"] = broken
+    run_eval("fake", "dev", "r1", **kw)
+    rows = lines(tmp_path / "results" / "r1" / "predictions.jsonl")
+    assert all(r["verify_ok"] is False and "unavailable" in r["verify_problems"][0] for r in rows)

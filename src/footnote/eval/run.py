@@ -24,6 +24,7 @@ from footnote.eval.records import (
 from footnote.eval.registry import complete_test_run, start_test_run
 from footnote.eval.split import SplitName, load_split
 from footnote.eval.summary import build_summary, is_grader_error
+from footnote.eval.verify_pass import PagesLoader, load_page_texts, with_verification
 from footnote.llm.client import LLMClient, Usage
 from footnote.prediction import Prediction, Step
 from footnote.systems import SystemSpec, get_system
@@ -112,6 +113,7 @@ def run_eval(
     questions: list[AgentQuestion] | None = None,
     gold: dict[str, Gold] | None = None,
     split_ids: dict[SplitName, list[str]] | None = None,
+    pages_loader: PagesLoader = load_page_texts,
 ) -> dict[str, Any]:
     spec = get_system(family)
     selected = _selected(questions, split_ids, split)
@@ -132,7 +134,7 @@ def run_eval(
     spent = Decimal(0)
     for q in remaining:
         if q.id not in preds:
-            preds[q.id] = _predict(spec, q, client)
+            preds[q.id] = with_verification(_predict(spec, q, client), q, pages_loader)
             append_prediction(run_dir, preds[q.id])
             spent += preds[q.id].usage.cost
         new = _grade(q, gold[q.id], preds[q.id], client, settings.grader_deployment)
