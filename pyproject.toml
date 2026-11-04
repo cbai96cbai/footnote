@@ -1,7 +1,7 @@
 [project]
 name = "footnote"
 version = "0.1.0"
-description = "An agent that answers questions about SEC filings and shows the exact quote behind its answer."
+description = "An agent that answers questions about SEC filings and cites the quotes behind its answer."
 readme = "README.md"
 authors = [
     { name = "Camellia Bai", email = "138811454+cbai96cbai@users.noreply.github.com" }
@@ -59,7 +59,7 @@ markers = [
 ]
 
 [tool.uv]
-# this Mac is Intel; recent onnxruntime (a fastembed dependency) has no wheel for it
+# onnxruntime (a fastembed dependency) is pinned for macOS x86_64 wheels; lift when available
 constraint-dependencies = ["onnxruntime<1.24"]
 required-environments = ["sys_platform == 'darwin' and platform_machine == 'x86_64'"]
 

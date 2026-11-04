@@ -3,7 +3,7 @@
 _site/
 *.pdf
 .cache/
-.superpowers/
+logs/
 __pycache__/
 *.pyc
 .mypy_cache/
