@@ -1,0 +1,32 @@
+{
+  "long-context": {
+    "family": "long-context",
+    "limits": {
+      "max_completion_tokens": 3000,
+      "max_input_tokens": 200000,
+      "reasoning_effort": "low"
+    },
+    "max_calls": 2,
+    "packing": "pages in order, each counted once as its [page N] block plus the joiner; added while the total fits the input limit minus the rest of the prompt (system text, question, response schema, framing per count_input_tokens); then the whole request is counted again and trailing pages are dropped while it is still over the limit",
+    "prompt": {
+      "system": "You answer one question about one SEC filing. Reply only with a JSON object with these fields.\n- answer: the answer in plain prose.\n- final_value: the single final number the question asks for, as {\"value\": <number>, \"unit\": ...}.\n  Give the number in the unit the question asks for (if it asks \"in USD millions\", the value is\n  the number of millions). Use unit \"usd\" for money, \"percent\" for percentages (65.4% is 65.4),\n  \"ratio\" for ratios, \"count\" for counts, \"other\" otherwise. Use null when the question has no\n  single numeric answer.\n- declined: true only when the material provided to you cannot support an answer; otherwise false.\n- decline_reason: why you declined, or null.\n- citations: exact quotes copied from the provided pages that support the answer, each with its\n  page number as written in the [page N] marker. Use an empty list when no pages are provided.",
+      "user": "{filing}\n\nPages of the filing:\n\n{pages}\n\nQuestion: {question}"
+    },
+    "version": "1"
+  },
+  "no-docs": {
+    "family": "no-docs",
+    "limits": {
+      "max_completion_tokens": 3000,
+      "max_input_tokens": 1000,
+      "reasoning_effort": "low"
+    },
+    "max_calls": 2,
+    "packing": "none: no pages are placed in the prompt",
+    "prompt": {
+      "system": "You answer one question about one SEC filing. Reply only with a JSON object with these fields.\n- answer: the answer in plain prose.\n- final_value: the single final number the question asks for, as {\"value\": <number>, \"unit\": ...}.\n  Give the number in the unit the question asks for (if it asks \"in USD millions\", the value is\n  the number of millions). Use unit \"usd\" for money, \"percent\" for percentages (65.4% is 65.4),\n  \"ratio\" for ratios, \"count\" for counts, \"other\" otherwise. Use null when the question has no\n  single numeric answer.\n- declined: true only when the material provided to you cannot support an answer; otherwise false.\n- decline_reason: why you declined, or null.\n- citations: exact quotes copied from the provided pages that support the answer, each with its\n  page number as written in the [page N] marker. Use an empty list when no pages are provided.",
+      "user": "{filing}\nNo pages of the filing are provided.\n\nQuestion: {question}"
+    },
+    "version": "1"
+  }
+}
