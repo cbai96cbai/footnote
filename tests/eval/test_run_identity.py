@@ -52,3 +52,34 @@ def test_changed_rubric_on_resume_refused(tmp_path: Path, monkeypatch: pytest.Mo
     monkeypatch.setattr("footnote.eval.run.rubric_hash", lambda: "changed")
     with pytest.raises(RunIdentityMismatch, match="rubric_hash"):
         run_eval("fake", "dev", "r1", **kw)
+
+
+def test_folder_with_records_but_no_run_json_is_refused(tmp_path: Path) -> None:
+    kw = _kw(tmp_path)
+    run_eval("fake", "dev", "r1", **kw)
+    (tmp_path / "results" / "r1" / "run.json").unlink()
+    with pytest.raises(RunIdentityMismatch, match="predates run identity; use a new run id"):
+        run_eval("fake", "dev", "r1", **kw)
+    assert not (tmp_path / "results" / "r1" / "run.json").exists()
+
+
+def test_empty_existing_folder_still_gets_run_json(tmp_path: Path) -> None:
+    kw = _kw(tmp_path)
+    (tmp_path / "results" / "r2").mkdir(parents=True)
+    run_eval("fake", "dev", "r2", **kw)
+    assert (tmp_path / "results" / "r2" / "run.json").exists()
+
+
+def test_second_invocation_of_the_same_run_fails_immediately(tmp_path: Path) -> None:
+    import fcntl
+
+    from footnote.eval.identity import RunLocked
+
+    kw = _kw(tmp_path)
+    run_dir = tmp_path / "results" / "r3"
+    run_dir.mkdir(parents=True)
+    with (run_dir / ".lock").open("w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(RunLocked, match="already running"):
+            run_eval("fake", "dev", "r3", **kw)
+    assert run_eval("fake", "dev", "r3", **kw)["n"] == len(QS)  # released: runs fine

@@ -30,7 +30,7 @@ _NUMBER = re.compile(
     (?:(?<![\w.])(?P<neg>[-−]))?\s*
     \$?\s*
     (?:(?<![\w.])(?P<neg2>[-−]))?
-    (?<![A-Za-z0-9_])(?<!\d\.)
+    (?<![A-Za-z0-9_])(?<!\d\.)(?<!\d[eE][-+−])
     (?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)
     (?:\s*(?P<scale>(?i:thousand|million|billion)|(?-i:bn|mn|mm|b|B|M|k|K)))?
     (?:(?P<pct>\s*%|\s+percent\b)|(?(scale)(?!)|(?P<x>x\b)))?

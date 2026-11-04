@@ -201,3 +201,22 @@ def test_extreme_final_values_are_reported_not_raised() -> None:
     for v in ("1E-90", "1E+90", "-1E+90"):
         ok, problems = fv_check(v, "usd", ["Net sales 1,577"])
         assert not ok and "final value out of range" in problems
+
+
+def test_exponent_shaped_tokens_hold_no_number() -> None:
+    from footnote.numbers import parse_numbers
+
+    for token in ("1e-3", "2.5E+6", "1e9", "1E−3"):
+        assert parse_numbers(f"rate {token} here") == []
+    assert [n.value for n in parse_numbers("Q3 2018 rose 5 percent")] == [2018, 5]
+    ok, _ = fv_check("3", "ratio", ["Rate 1e-3"], page="Rate 1e-3")
+    assert not ok
+
+
+def test_percent_and_ratio_ignore_the_quoted_scale_word() -> None:
+    page = "Revenue 1.2 million"
+    q = ["Revenue 1.2 million"]
+    assert not fv_check("1200000", "ratio", q, page=page)[0]
+    assert not fv_check("1200000", "percent", q, page=page)[0]
+    assert fv_check("1200000", "usd", q, page=page)[0]
+    assert fv_check("1.2", "ratio", q, page=page)[0]

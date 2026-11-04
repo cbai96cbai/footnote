@@ -169,12 +169,13 @@ def _number_supported(
         return True
     if unit == "percent" and any(_rounds_to(shown, r * 100) for r in results):
         return True
-    # a quoted number with a % sign supports only a percent value
+    # a quoted number with a % sign supports only a percent value; percent and ratio match the
+    # quoted number as written, so its scale word is not applied
     return any(
         _supported_by_value(shown, b, magnitudes)
         for n in cited
         if unit == "percent" or not n.percent
-        for b in _bases(n)
+        for b in (_bases(n) if scaled else [n.value])
     )
 
 
