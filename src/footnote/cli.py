@@ -6,10 +6,11 @@ from typing import Annotated, cast, get_args
 import typer
 
 from footnote.benchmark import load_questions
-from footnote.budget.tally import Tally
+from footnote.budget.tally import BudgetExceeded, Tally
 from footnote.config import Settings
 from footnote.eval.failures import FAILURE_TYPES, classify_run, failures_markdown
 from footnote.eval.gold import load_gold
+from footnote.eval.identity import RunIdentityMismatch, RunLocked
 from footnote.eval.records import read_predictions, read_verdicts
 from footnote.eval.registry import TestRunRefused
 from footnote.eval.run import DEFAULT_RESULTS, register_known_systems, run_eval
@@ -47,7 +48,7 @@ def eval_cmd(
             rerun_test=rerun_test,
             reason=reason,
         )
-    except TestRunRefused as exc:
+    except (TestRunRefused, RunLocked, RunIdentityMismatch, BudgetExceeded) as exc:
         typer.echo(f"refused: {exc}", err=True)
         raise typer.Exit(1) from exc
     if s["ci95"] is None:
@@ -61,7 +62,10 @@ def eval_cmd(
         f"(95% CI {lo:.3f} to {hi:.3f}), {s['errors']} errors, ${s['cost_usd']:.4f}"
     )
     if not s["complete"]:
-        typer.echo(f"incomplete: {s['grader_errors']} grader errors; rerun with the same run id")
+        typer.echo(
+            f"incomplete: {s['retriable_errors']} questions rate limited, "
+            f"{s['grader_errors']} grader errors; rerun with the same run id"
+        )
         raise typer.Exit(1)
 
 
