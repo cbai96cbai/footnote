@@ -14,21 +14,27 @@ FailureType = Literal[
 ]
 FAILURE_TYPES: tuple[str, ...] = get_args(FailureType)
 
+# The no-documents system reads no pages, so "none of the gold pages was read" says nothing about it.
+SYSTEMS_WITHOUT_PAGES = frozenset({"no-docs"})
+
 
 def failure_type(pred: Prediction, verdict: Verdict, gold: Gold) -> FailureType | None:
     """The first matching cause; None for a correct answer or a grader error (not failures).
 
-    "unsupported" applies only to a system that checks its own answers; a baseline's eval-time
-    check is informational and never the cause."""
+    "unsupported" applies only to a system that checks its own answers (an answer, or a decline
+    after the check failed); a baseline's eval-time check is informational and never the cause.
+    "retrieval_miss" applies only to systems that read pages."""
     if verdict.label == "correct" or is_grader_error(verdict):
         return None
     if pred.status == "error":
         return "error"
-    if pred.status == "declined" or verdict.label == "declined":
-        return "declined"
     if pred.verify_ok is False and pred.system in SELF_VERIFYING_SYSTEMS:
         return "unsupported"
-    if not any(e.page_index in pred.pages_read for e in gold.evidence):
+    if pred.status == "declined" or verdict.label == "declined":
+        return "declined"
+    if pred.system not in SYSTEMS_WITHOUT_PAGES and not any(
+        e.page_index in pred.pages_read for e in gold.evidence
+    ):
         return "retrieval_miss"
     if verdict.method == "numeric":
         return "wrong_number"

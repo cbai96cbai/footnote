@@ -57,16 +57,31 @@ def test_failure_type_rules() -> None:
     assert failure_type(pred(), verdict("error", "llm"), GOLD) is None
 
 
+def test_agent_decline_after_failed_check_is_unsupported() -> None:
+    declined_after_check = pred("declined", verify_ok=False)
+    assert failure_type(declined_after_check, verdict("declined", "none"), GOLD) == "unsupported"
+    # a plain decline, and a baseline's decline, stay declined
+    assert failure_type(pred("declined", None), verdict("declined", "none"), GOLD) == "declined"
+    other = pred("declined", verify_ok=False, system="long-context")
+    assert failure_type(other, verdict("declined", "none"), GOLD) == "declined"
+
+
+def test_no_docs_is_never_a_retrieval_miss() -> None:
+    nodocs = pred(verify_ok=None, pages=[], system="no-docs")
+    assert failure_type(nodocs, verdict("incorrect", "numeric"), GOLD) == "wrong_number"
+    assert failure_type(nodocs, verdict("incorrect", "llm"), GOLD) == "reasoning"
+
+
 def test_unsupported_only_for_systems_that_verify_themselves() -> None:
     for system in ("long-context", "plain-retrieval", "no-docs"):
         # the eval-time check is informational: the other rules decide the type
         failed = pred(verify_ok=False, system=system)
         assert failure_type(failed, verdict("incorrect", "numeric"), GOLD) == "wrong_number"
         assert failure_type(failed, verdict("incorrect"), GOLD) == "reasoning"
-        assert (
-            failure_type(pred(verify_ok=False, pages=[], system=system), verdict("incorrect"), GOLD)
-            == "retrieval_miss"
+        miss = failure_type(
+            pred(verify_ok=False, pages=[], system=system), verdict("incorrect"), GOLD
         )
+        assert miss == ("reasoning" if system == "no-docs" else "retrieval_miss")
         assert failure_type(pred(verify_ok=None, system=system), verdict("incorrect"), GOLD) == (
             "reasoning"
         )
