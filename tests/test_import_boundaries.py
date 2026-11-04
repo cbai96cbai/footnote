@@ -2,7 +2,7 @@ import ast
 from pathlib import Path
 
 PKG = Path(__file__).resolve().parents[1] / "src" / "footnote"
-EVAL_EXEMPT = {"eval", "site"}
+EVAL_EXEMPT = {"eval", "site", "cli.py"}  # cli.py is the scoring-side entry point
 # the only places allowed to touch raw benchmark rows (which hold the gold answers)
 RAW_EXEMPT = {"eval", "site", "benchmark.py", "_financebench.py"}
 
