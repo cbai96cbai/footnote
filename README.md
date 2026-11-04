@@ -11,7 +11,8 @@ once.
 
 - **Answers with quotes.** Each answer cites the filing page and the quotes behind it. A code
   check confirms the quotes appear on the cited pages and that the final number is a rounding of a
-  quoted number or of a logged calculation over quoted numbers.
+  quoted number or of a logged calculation over quoted numbers or the exact results of earlier
+  such calculations.
 - **Compared on equal terms.** The agent is scored against three baselines (no documents, plain
   retrieval, long context) with the same model and the same grading; the systems that read
   documents all get the same filing.
@@ -94,7 +95,8 @@ After the agent submits, code checks two things.
 1. Every quote it cites appears on the cited page of the filing, after normalizing whitespace, line breaks and
    hyphenation.
 2. The final numeric answer is a correct rounding of a number in a cited quote, or the result of a
-   logged calculation over quoted numbers (plus small constants such as /2, x100, x365).
+   logged calculation over quoted numbers or the exact results of earlier such calculations (plus
+   small constants such as /2, x100, x365). The baselines have no logged calculations.
 
 It does not check numbers in the explanation text. It does not prove a number means what the answer
 says: a quoted figure can be in the wrong units or for the wrong period and still pass. The grader
