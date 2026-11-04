@@ -1,6 +1,6 @@
 # footnote
 
-An agent that answers questions about SEC filings and shows exactly where every number came from.
+An agent that answers questions about SEC filings and shows the exact quote behind its answer.
 
 Recording: (added when the site is published)
 Live site: (link added when the site is published)
@@ -12,7 +12,8 @@ once.
 - **Answers with quotes.** Each answer cites the filing page and the exact quote behind it. A code
   check confirms the quotes exist and that the final number follows from them.
 - **Compared on equal terms.** The agent is scored against three baselines (no documents, plain
-  retrieval, long context) with the same model, the same filing access and the same grading.
+  retrieval, long context) with the same model and the same grading; the systems that read
+  documents all get the same filing.
 - **Honest uncertainty.** Accuracy comes with a 95% interval that resamples whole companies, plus
   answer coverage, cost per question and latency. A static site shows every answer, citation,
   trace and grader verdict, including the failures.
@@ -112,12 +113,14 @@ Python 3.12 or 3.13 and [uv](https://docs.astral.sh/uv/).
 
 ```
 uv sync
-cp .env.example .env   # fill in the five variables, then export them
 ```
 
-The variables are `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `FOOTNOTE_AGENT_DEPLOYMENT`,
-`FOOTNOTE_GRADER_DEPLOYMENT` and `FOOTNOTE_CACHE` (where PDFs and indexes are cached). The agent
-runs on gpt-5-mini and the grader on gpt-4.1-mini, both Azure OpenAI deployments.
+The code reads settings from the process environment only; it does not load `.env`. Copy
+`.env.example` as a checklist and export the variables in your shell (for example
+`set -a; source .env; set +a`). `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY` are required.
+`FOOTNOTE_AGENT_DEPLOYMENT` and `FOOTNOTE_GRADER_DEPLOYMENT` default to `footnote-agent` and
+`footnote-grader`; `FOOTNOTE_CACHE` (PDFs and indexes) defaults to `~/.cache/footnote`. The agent
+runs on gpt-5-mini and the grader on gpt-4.1-mini, as Azure OpenAI deployments.
 
 ```
 uv run footnote eval --system agent --split gate --run-id agent-gate-1
@@ -142,4 +145,5 @@ development questions for pipeline checks), `dev` (93) and `test` (57). Checks: 
   has been public since 2023 and may be in training data.
 - Page references follow the benchmark PDF's zero-based page index plus one, which can differ from
   the number printed on the page.
-- Some source links have gone dead; the site falls back to an SEC EDGAR search.
+- Some source links have gone dead. Where the original may be dead, the site keeps the original
+  link and adds an SEC EDGAR search link beside it.

@@ -1,7 +1,7 @@
 [project]
 name = "footnote"
 version = "0.1.0"
-description = "An agent that answers questions about SEC filings and shows exactly where every number came from."
+description = "An agent that answers questions about SEC filings and shows the exact quote behind its answer."
 readme = "README.md"
 authors = [
     { name = "Camellia Bai", email = "138811454+cbai96cbai@users.noreply.github.com" }
