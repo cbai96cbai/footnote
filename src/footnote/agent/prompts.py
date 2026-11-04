@@ -66,11 +66,9 @@ def _tool(name: str, description: str, properties: dict[str, Any], required: lis
 TOOLS: list[Any] = [
     _tool(
         "search_filing",
-        "Search the filing; returns the best-matching passages, each with its page_index.",
-        {
-            "query": {"type": "string", "description": "words likely to appear in the passage"},
-            "k": {"type": "integer", "description": "how many passages, 1 to 8 (default 5)"},
-        },
+        "Search the filing with plain words (no Boolean, wildcard or exact-phrase syntax); "
+        "returns up to 8 passages, each with its page_index.",
+        {"query": {"type": "string", "description": "words likely to appear in the passage"}},
         ["query"],
     ),
     _tool(

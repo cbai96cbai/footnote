@@ -64,8 +64,7 @@ CONFIG: dict[str, Any] = {
     },
     "tool_limits": {
         "read_page_max_tokens": tool_limits.READ_PAGE_MAX_TOKENS,
-        "default_k": tool_limits.DEFAULT_K,
-        "max_k": tool_limits.MAX_K,
+        "search_k": tool_limits.SEARCH_K,
         "summary_chars": tool_limits.SUMMARY_CHARS,
         "trimming": "oldest tool results are replaced by their summaries until the call fits",
     },

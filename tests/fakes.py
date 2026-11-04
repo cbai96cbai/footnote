@@ -52,8 +52,10 @@ def failed(cost: str = "0.5") -> CallFailed:
 class FakeIndex:
     def __init__(self, hits: list[tuple[int, str]]) -> None:
         self.hits = hits
+        self.ks: list[int] = []
 
     def search(self, query: str, k: int = 8) -> list[ScoredPassage]:
+        self.ks.append(k)
         return [
             ScoredPassage(Passage(f"D:p{p}:0", "D", p, text), 1.0 / (i + 1))
             for i, (p, text) in enumerate(self.hits[:k])

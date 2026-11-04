@@ -9,8 +9,7 @@ from footnote.retrieval.index import ScoredPassage
 from footnote.verify import Calc, evaluate_expression
 
 READ_PAGE_MAX_TOKENS = 3_000
-DEFAULT_K = 5
-MAX_K = 8
+SEARCH_K = 8
 SUMMARY_CHARS = 200
 
 
@@ -93,10 +92,7 @@ class Toolbox:
         query = args.get("query")
         if not isinstance(query, str) or not query.strip():
             raise ToolError("query must be a non-empty string")
-        k = _int_arg(args, "k") if "k" in args else DEFAULT_K
-        if not 1 <= k <= MAX_K:
-            raise ToolError(f"k must be between 1 and {MAX_K}")
-        hits = self.index.search(query, k)
+        hits = self.index.search(query, SEARCH_K)
         pages = [h.passage.page_index for h in hits]
         body = "\n\n".join(
             f"[page_index {h.passage.page_index}]\n{display_text(h.passage.text)}" for h in hits

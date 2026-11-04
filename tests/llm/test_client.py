@@ -268,12 +268,16 @@ TOOLS = [{"type": "function", "function": {"name": "f", "parameters": {"type": "
 def test_tool_choice_reaches_the_sdk_payload_only_when_given() -> None:
     c, sdk = client([ok(), ok()])
     c.chat(MSGS, deployment="footnote-agent", limits=LIMITS["agent"], tools=TOOLS)
-    c.chat(MSGS, deployment="footnote-agent", limits=LIMITS["agent"], tools=TOOLS, tool_choice=FORCE)
+    c.chat(
+        MSGS, deployment="footnote-agent", limits=LIMITS["agent"], tools=TOOLS, tool_choice=FORCE
+    )
     assert "tool_choice" not in sdk.calls[0]
     assert sdk.calls[1]["tool_choice"] == FORCE and sdk.calls[1]["tools"] == TOOLS
 
 
 def test_tool_choice_is_unchanged_across_a_rate_limit_retry() -> None:
     c, sdk = client([status_error(429), ok()])
-    c.chat(MSGS, deployment="footnote-agent", limits=LIMITS["agent"], tools=TOOLS, tool_choice=FORCE)
+    c.chat(
+        MSGS, deployment="footnote-agent", limits=LIMITS["agent"], tools=TOOLS, tool_choice=FORCE
+    )
     assert len(sdk.calls) == 2 and all(k["tool_choice"] == FORCE for k in sdk.calls)

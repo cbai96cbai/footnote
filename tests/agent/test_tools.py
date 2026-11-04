@@ -14,9 +14,30 @@ def box() -> Toolbox:
 
 
 def test_search_shows_page_index_and_reports_pages() -> None:
-    out = box().run("search_filing", {"query": "revenue", "k": 2})
+    out = box().run("search_filing", {"query": "revenue"})
     assert "[page_index 0]" in out.content and out.pages_seen == [0, 1]
     assert len(out.summary) <= 200
+
+
+def test_search_schema_has_no_k_and_says_plain_words() -> None:
+    from footnote.agent.prompts import TOOLS
+
+    fn = next(t["function"] for t in TOOLS if t["function"]["name"] == "search_filing")
+    assert list(fn["parameters"]["properties"]) == ["query"]
+    assert "plain words" in fn["description"] and "up to 8 passages" in fn["description"]
+
+
+def test_search_always_asks_for_eight_and_ignores_a_k_from_the_model() -> None:
+    index = FakeIndex([(i, f"passage {i}") for i in range(12)])
+    b = Toolbox({i: "x" for i in range(12)}, index)
+    out = b.run("search_filing", {"query": "revenue"})
+    assert out.pages_seen == list(range(8)) and index.ks == [8]
+    for k in (2, 99, "many", None):
+        out = b.run("search_filing", {"query": "revenue", "k": k})
+        assert len(out.pages_seen) == 8
+    assert index.ks == [8] * 5
+    few = Toolbox({0: "x"}, FakeIndex([(0, "only one")]))
+    assert few.run("search_filing", {"query": "q"}).pages_seen == [0]
 
 
 def test_read_page_cuts_long_pages() -> None:
@@ -44,7 +65,6 @@ def test_unknown_tool_and_bad_search_arguments() -> None:
     for name, args in (
         ("nope", {}),
         ("search_filing", {}),
-        ("search_filing", {"query": "a", "k": 99}),
     ):
         with pytest.raises(ToolError):
             box().run(name, args)
