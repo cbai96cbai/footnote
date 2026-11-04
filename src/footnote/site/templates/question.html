@@ -22,7 +22,7 @@
   <p class="muted">No answer ({{ p.status }}).</p>
   {% endif %}
   <p class="muted">Grader ({{ e.verdict.method }}): {{ e.verdict.rationale|excerpt }}</p>
-  {% if p.answer %}
+  {% if p.answer and p.status != "declined" and not p.answer.declined %}
   {% for c in p.answer.citations %}
   <blockquote><mark>{{ c.quote|excerpt }}</mark>
     <footer>page {{ c.page_index + 1 }} of the benchmark PDF, {{ doc.doc_name }}</footer></blockquote>

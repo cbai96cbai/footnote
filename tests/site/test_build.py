@@ -124,3 +124,39 @@ def test_no_long_page_substring_published(tmp_path: Path, monkeypatch: pytest.Mo
             t = " ".join(page.text.split())
             for i in range(0, max(len(t) - 200, 0), 25):
                 assert t[i : i + 200] not in html
+
+
+def test_declined_prediction_renders_no_citations(
+    results: Path, tmp_path: Path, inject: dict[str, Any]
+) -> None:
+    from dataclasses import replace
+
+    from support import prediction
+
+    from footnote.eval.records import append_prediction
+
+    quote = "declined system quote that must not be shown"
+    p = prediction(inject["questions"][0], "agent", quote=quote)
+    run = results / "agent-dev-1"
+    (run / "predictions.jsonl").unlink()
+    append_prediction(run, replace(p, status="declined"))
+    out = tmp_path / "out"
+    build(results, out, inject)
+    html = (out / "q" / "q1.html").read_text()
+    assert quote not in html
+    # the same quote on an answered prediction does render
+    (run / "predictions.jsonl").unlink()
+    append_prediction(run, p)
+    build(results, out, inject)
+    assert quote in (out / "q" / "q1.html").read_text()
+
+
+def test_about_page_does_not_overclaim_grounding(
+    results: Path, tmp_path: Path, inject: dict[str, Any]
+) -> None:
+    out = tmp_path / "out"
+    build(results, out, inject)
+    about = (out / "about.html").read_text()
+    assert "every number" not in about.lower()
+    assert "verbatim on the cited page" in about
+    assert "not checked" in about
