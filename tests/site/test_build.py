@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from support import write_run
+from support import publish, write_run
 
 from footnote.benchmark import load_questions
 from footnote.corpus.parse import load_pages
@@ -114,6 +114,7 @@ def test_no_long_page_substring_published(tmp_path: Path, monkeypatch: pytest.Mo
         page = max(pages[q.doc_name], key=lambda p: len(p.text))
         quote = " ".join(page.text.split())[:80]
         write_run(root, "agent-dev-1", "agent", "dev", [q], quote=quote, page_index=page.page_index)
+    publish(root, ["agent-dev-1"])
     out = tmp_path / "out"
     build_site(root, out)  # real questions, reference answers, documents and committed content
     html = "\n".join(p.read_text() for p in out.rglob("*.html"))

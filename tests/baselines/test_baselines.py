@@ -15,9 +15,7 @@ from footnote.llm.client import CallFailed, ChatResult, Usage
 from footnote.llm.tokens import count_input_tokens
 
 Q = AgentQuestion("fb_1", "Acme", "ACME_2020_10K", "metrics-generated", "What was revenue?")
-GOOD = AgentAnswer(
-    answer="12", final_value=None, declined=False, decline_reason=None, citations=[]
-)
+GOOD = AgentAnswer(answer="12", final_value=None, declined=False, decline_reason=None, citations=[])
 U = Usage(100, 50, Decimal("0.001"))
 
 
@@ -111,9 +109,10 @@ def test_settings_file_matches_constants() -> None:
     path = Path(__file__).resolve().parents[2] / "data" / "baseline_settings.json"
     assert json.loads(path.read_text()) == json.loads(json.dumps(baseline_settings()))
     for fam, spec in (("no-docs", no_docs.SPEC), ("long-context", long_context.SPEC)):
-        assert spec.config["limits"]["max_input_tokens"] == LIMITS[
-            "no_docs" if fam == "no-docs" else "long_context"
-        ].max_input_tokens
+        assert (
+            spec.config["limits"]["max_input_tokens"]
+            == LIMITS["no_docs" if fam == "no-docs" else "long_context"].max_input_tokens
+        )
         assert spec.max_cost_per_question > 0
 
 

@@ -12,8 +12,10 @@ from footnote.eval.gold import Gold, load_gold
 from footnote.site import filters
 from footnote.site.chart import Bar, accuracy_chart
 from footnote.site.links import edgar_fallback, load_link_status
+from footnote.site.output import MARKER, replace_output
 from footnote.site.runs import Run, load_runs, split_runs
 
+__all__ = ["MARKER", "build_site"]
 HERE = Path(__file__).parent
 HIDDEN_SECTOR = "Health Care"
 PAPER = [
@@ -105,8 +107,21 @@ def build_site(
     kept = set(curated([f.get("id", "") for f in failure_list]))
     failure_items = [{**f, "page": pages[f["id"]]} for f in failure_list if f.get("id") in kept]
 
+    replace_output(
+        out_dir,
+        lambda target: _write_pages(target, test, dev, pages, featured_pages, failure_items),
+    )
+
+
+def _write_pages(
+    out_dir: Path,
+    test: list[Run],
+    dev: list[Run],
+    pages: dict[str, dict[str, Any]],
+    featured_pages: list[dict[str, Any]],
+    failure_items: list[dict[str, Any]],
+) -> None:
     env = _env()
-    out_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy(HERE / "style.css", out_dir / "style.css")
     (out_dir / "q").mkdir(exist_ok=True)
 

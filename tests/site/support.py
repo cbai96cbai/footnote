@@ -82,3 +82,8 @@ def write_run(
             }
         )
     )
+
+
+def publish(root: Path, run_ids: list[str]) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "published.json").write_text(json.dumps(run_ids), encoding="utf-8")

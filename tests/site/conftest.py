@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from support import DOCS, GOLD, LINKS, QUESTIONS, write_run
+from support import DOCS, GOLD, LINKS, QUESTIONS, publish, write_run
 
 
 @pytest.fixture
@@ -10,6 +10,7 @@ def results(tmp_path: Path) -> Path:
     root = tmp_path / "results"
     write_run(root, "agent-dev-1", "agent", "dev", ["q1", "q2", "q3"])
     write_run(root, "nodocs-dev-1", "no-docs", "dev", ["q1", "q2", "q3"])
+    publish(root, ["agent-dev-1", "nodocs-dev-1"])
     return root
 
 
