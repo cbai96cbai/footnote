@@ -157,11 +157,13 @@ def run_eval(
             old_pred = preds.get(q.id)
             if old_pred is None or is_retriable_error(old_pred):
                 new_pred = with_verification(_predict(spec, q, client), q, pages_loader)
+                spent += (
+                    new_pred.usage.cost
+                )  # this invocation's spend only: the old charge was settled
                 if old_pred is not None:  # the refused attempt's charge stays on the question
                     new_pred = replace(new_pred, usage=add_usage(new_pred.usage, old_pred.usage))
                 preds[q.id] = new_pred
                 append_prediction(run_dir, new_pred)
-                spent += new_pred.usage.cost
             new = _grade(q, gold[q.id], preds[q.id], client, settings.grader_deployment)
             spent += new.usage.cost
             old = verdicts.get(q.id)

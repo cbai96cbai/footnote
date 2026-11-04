@@ -34,13 +34,18 @@ def is_grader_error(v: Verdict) -> bool:
     return v.method == "llm" and v.label == "error"
 
 
+def is_unscored(pred: Prediction, verdict: Verdict) -> bool:
+    """Never a result: grading failed, or the service refused the request and it is to be rerun."""
+    return is_grader_error(verdict) or is_retriable_error(pred)
+
+
 def outcomes_by_company(
-    questions: list[AgentQuestion], verdicts: dict[str, Verdict]
+    questions: list[AgentQuestion], verdicts: dict[str, Verdict], preds: dict[str, Prediction]
 ) -> dict[str, list[bool]]:
-    """Graded questions only, by company."""
+    """Scored questions only, by company."""
     out: dict[str, list[bool]] = {}
     for q in questions:
-        if is_grader_error(verdicts[q.id]):
+        if is_unscored(preds[q.id], verdicts[q.id]):
             continue
         out.setdefault(q.company, []).append(verdicts[q.id].label == "correct")
     return out
@@ -61,11 +66,11 @@ def build_summary(
     answered = [p for p in ps if p.status == "answered"]
     verified = [p for p in answered if p.verify_ok is not None]
     grader_errors = sum(is_grader_error(verdicts[q.id]) for q in questions)
-    n_graded = n - grader_errors
     retriable_errors = sum(is_retriable_error(p) for p in ps)
+    n_graded = sum(not is_unscored(preds[q.id], verdicts[q.id]) for q in questions)
     ci = None
     if n_graded:
-        _, lo, hi = cluster_bootstrap(outcomes_by_company(questions, verdicts))
+        _, lo, hi = cluster_bootstrap(outcomes_by_company(questions, verdicts, preds))
         ci = [lo, hi]
     return {
         "system": identity["family"],

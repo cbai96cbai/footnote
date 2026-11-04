@@ -16,8 +16,10 @@ from footnote.eval.registry import TestRunRefused
 from footnote.eval.run import DEFAULT_RESULTS, register_known_systems, run_eval
 from footnote.eval.split import SplitName
 from footnote.eval.stats import cluster_bootstrap, paired_cluster_bootstrap
-from footnote.eval.summary import is_grader_error, outcomes_by_company
+from footnote.eval.summary import is_unscored, outcomes_by_company
 from footnote.llm.client import LLMClient
+from footnote.prediction import is_retriable_error
+from footnote.systems import UnknownSystem
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 ResultsDir = Annotated[Path, typer.Option(help="Where run folders live.")]
@@ -48,19 +50,17 @@ def eval_cmd(
             rerun_test=rerun_test,
             reason=reason,
         )
-    except (TestRunRefused, RunLocked, RunIdentityMismatch, BudgetExceeded) as exc:
+    except (TestRunRefused, RunLocked, RunIdentityMismatch, BudgetExceeded, UnknownSystem) as exc:
         typer.echo(f"refused: {exc}", err=True)
         raise typer.Exit(1) from exc
     if s["ci95"] is None:
+        typer.echo(f"{run_id}: nothing scored yet")
+    else:
+        lo, hi = s["ci95"]
         typer.echo(
-            f"{run_id}: nothing graded ({s['grader_errors']} grader errors); rerun to resume"
+            f"{run_id}: {s['correct']}/{s['n_graded']} correct = {s['accuracy']:.3f} "
+            f"(95% CI {lo:.3f} to {hi:.3f}), {s['errors']} errors, ${s['cost_usd']:.4f}"
         )
-        raise typer.Exit(1)
-    lo, hi = s["ci95"]
-    typer.echo(
-        f"{run_id}: {s['correct']}/{s['n_graded']} correct = {s['accuracy']:.3f} "
-        f"(95% CI {lo:.3f} to {hi:.3f}), {s['errors']} errors, ${s['cost_usd']:.4f}"
-    )
     if not s["complete"]:
         typer.echo(
             f"incomplete: {s['retriable_errors']} questions rate limited, "
@@ -72,16 +72,27 @@ def eval_cmd(
 @app.command("compare")
 def compare_cmd(run_a: str, run_b: str, results_dir: ResultsDir = DEFAULT_RESULTS) -> None:
     by_id = {q.id: q for q in load_questions()}
+    preds = {r: read_predictions(results_dir / r) for r in (run_a, run_b)}
+    for r in (run_a, run_b):
+        limited = sum(is_retriable_error(p) for p in preds[r].values())
+        if limited:
+            typer.echo(
+                f"refused: run {r} still has {limited} rate-limited questions; "
+                "finish it with the same run id first",
+                err=True,
+            )
+            raise typer.Exit(1)
     va, vb = read_verdicts(results_dir / run_a), read_verdicts(results_dir / run_b)
+    pa, pb = preds[run_a], preds[run_b]
     shared = [
         by_id[i]
-        for i in sorted(set(va) & set(vb))
-        if not (is_grader_error(va[i]) or is_grader_error(vb[i]))
+        for i in sorted(set(va) & set(vb) & set(pa) & set(pb))
+        if not (is_unscored(pa[i], va[i]) or is_unscored(pb[i], vb[i]))
     ]
     if not shared:
         typer.echo("the two runs share no questions", err=True)
         raise typer.Exit(1)
-    a, b = outcomes_by_company(shared, va), outcomes_by_company(shared, vb)
+    a, b = outcomes_by_company(shared, va, pa), outcomes_by_company(shared, vb, pb)
     for name, o in ((run_a, a), (run_b, b)):
         acc, lo, hi = cluster_bootstrap(o)
         typer.echo(f"{name}: {acc:.3f} (95% CI {lo:.3f} to {hi:.3f}) on {len(shared)} questions")

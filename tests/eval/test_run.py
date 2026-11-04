@@ -336,3 +336,64 @@ def test_no_docs_system_is_never_verified(tmp_path: Path) -> None:
     run_eval("fake", "dev", "r2", **kw)
     rows = lines(tmp_path / "results" / "r2" / "predictions.jsonl")
     assert rows and all(r["verify_ok"] is None and r["verify_problems"] == [] for r in rows)
+
+
+def test_rate_limited_question_is_left_out_of_accuracy_and_interval(tmp_path: Path) -> None:
+    s = run_eval(
+        "fake",
+        "dev",
+        "r1",
+        **setup(tmp_path, lambda q, c: limited(q) if q.id == "q1" else prediction(q)),
+    )
+    assert s["complete"] is False and s["retriable_errors"] == 1
+    assert s["n"] == 4 and s["n_graded"] == 3 and s["correct"] == 3
+    assert s["accuracy"] == 1.0 and s["ci95"] == [1.0, 1.0]
+
+
+def test_compare_refuses_a_run_with_rate_limited_questions(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from footnote import cli
+
+    run_eval(
+        "fake",
+        "dev",
+        "a",
+        **setup(tmp_path, lambda q, c: limited(q) if q.id == "q1" else prediction(q)),
+    )
+    run_eval("fake2", "dev", "b", **setup(tmp_path, lambda q, c: prediction(q), family="fake2"))
+    cli.load_questions = lambda: QS  # type: ignore[assignment]
+    try:
+        out = CliRunner().invoke(
+            cli.app, ["compare", "b", "a", "--results-dir", str(tmp_path / "results")]
+        )
+    finally:
+        from footnote.benchmark import load_questions
+
+        cli.load_questions = load_questions  # type: ignore[assignment]
+    assert out.exit_code == 1
+    assert "a" in out.output and "rate-limited" in out.output and "minus" not in out.output
+    assert "Traceback" not in out.output
+
+
+def test_resume_does_not_charge_a_refused_attempts_spend_twice(tmp_path: Path) -> None:
+    prior = Decimal("0.010")
+    state = {"limited": True}
+
+    def runner(q: AgentQuestion, client: Any) -> Prediction:
+        if q.id == "q1" and state["limited"]:
+            return replace(limited(q), usage=Usage(100, 20, prior))
+        return prediction(q)
+
+    kw = setup(tmp_path, runner)
+    first = run_eval("fake", "dev", "r1", **kw)
+    state["limited"] = False
+    second = run_eval("fake", "dev", "r1", **kw)
+    settles = [
+        Decimal(json.loads(x)["amount"])
+        for x in (tmp_path / "spend.jsonl").read_text().splitlines()
+        if json.loads(x)["event"] == "settle"
+    ]
+    # what the two invocations spent, each counted once, equals what the summary reports
+    assert sum(settles) == Decimal(str(second["cost_usd"]))
+    assert first["cost_usd"] < second["cost_usd"]

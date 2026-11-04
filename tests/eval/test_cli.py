@@ -10,6 +10,8 @@ from typer.testing import CliRunner
 from footnote.benchmark import AgentQuestion
 from footnote.budget.tally import Tally
 from footnote.cli import app
+from footnote.eval.records import append_prediction
+from footnote.prediction import NO_USAGE, Prediction
 
 
 def test_compare_prints_paired_difference(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -22,6 +24,10 @@ def test_compare_prints_paired_difference(tmp_path: Path, monkeypatch: pytest.Mo
         d = tmp_path / name
         d.mkdir()
         u = {"input_tokens": 0, "output_tokens": 0, "cost": "0", "charged_max": False}
+        for i in ids:
+            append_prediction(
+                d, Prediction(i, "fake", "1", None, "answered", None, [], [], NO_USAGE, 0.0)
+            )
         (d / "verdicts.jsonl").write_text(
             "".join(
                 json.dumps(
@@ -169,3 +175,10 @@ def test_eval_prints_one_line_for_a_locked_run_and_an_identity_mismatch(cli_env:
     out = _eval(cli_env, system="plain-retrieval")
     assert out.exit_code == 1 and "was started differently" in out.output
     assert isinstance(out.exception, SystemExit) and "Traceback" not in out.output
+
+
+def test_unknown_system_is_a_one_line_error(cli_env: Path) -> None:
+    out = _eval(cli_env, system="nope")
+    assert out.exit_code == 1 and "unknown system 'nope'" in out.output
+    assert isinstance(out.exception, SystemExit) and "Traceback" not in out.output
+    assert len(out.output.strip().splitlines()) == 1

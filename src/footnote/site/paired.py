@@ -2,7 +2,7 @@
 
 from footnote.benchmark import AgentQuestion
 from footnote.eval.stats import paired_cluster_bootstrap
-from footnote.eval.summary import is_grader_error, outcomes_by_company
+from footnote.eval.summary import is_unscored, outcomes_by_company
 from footnote.site.runs import Run
 
 Difference = tuple[float, float, float]
@@ -23,14 +23,19 @@ def paired_differences(
             continue
         shared = [
             questions[i]
-            for i in sorted(set(agent.verdicts) & set(r.verdicts))
+            for i in sorted(
+                set(agent.verdicts) & set(agent.predictions) & set(r.verdicts) & set(r.predictions)
+            )
             if i in questions
-            and not (is_grader_error(agent.verdicts[i]) or is_grader_error(r.verdicts[i]))
+            and not (
+                is_unscored(agent.predictions[i], agent.verdicts[i])
+                or is_unscored(r.predictions[i], r.verdicts[i])
+            )
         ]
         out[r.run_id] = (
             paired_cluster_bootstrap(
-                outcomes_by_company(shared, agent.verdicts),
-                outcomes_by_company(shared, r.verdicts),
+                outcomes_by_company(shared, agent.verdicts, agent.predictions),
+                outcomes_by_company(shared, r.verdicts, r.predictions),
             )
             if shared
             else None

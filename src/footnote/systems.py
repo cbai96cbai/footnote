@@ -11,6 +11,11 @@ from footnote.benchmark import AgentQuestion
 from footnote.llm.client import LLMClient
 from footnote.prediction import Prediction
 
+
+class UnknownSystem(Exception):
+    """A system family nobody registered."""
+
+
 # A runner should catch its own failures and return an error Prediction carrying the usage it
 # accumulated. If it raises instead, the eval run records an error and charges the system's
 # max_cost_per_question (actual spend is unknown): a conservative fallback, not the normal path.
@@ -53,4 +58,6 @@ def get_system(family: str) -> SystemSpec:
     try:
         return _REGISTRY[family]
     except KeyError:
-        raise KeyError(f"unknown system {family!r}; registered: {sorted(_REGISTRY)}") from None
+        raise UnknownSystem(
+            f"unknown system {family!r}; registered: {', '.join(sorted(_REGISTRY))}"
+        ) from None
