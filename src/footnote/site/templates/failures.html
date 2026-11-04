@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Footnote: failures{% endblock %}
+{% block content %}
+<h1>Failures</h1>
+<p>Cases where a system got it wrong, with what went wrong. Failures are published next to the
+successes so the scores can be checked against them.</p>
+{% for it in items %}
+<section class="system">
+  <h2><a href="q/{{ it.id }}.html">{{ it.page.q.question|excerpt }}</a></h2>
+  <p class="muted">{{ it.page.doc.company }}, {{ it.system }}</p>
+  <p>{{ it.note|excerpt }}</p>
+</section>
+{% else %}
+<p>No failure write-ups have been published yet.</p>
+{% endfor %}
+{% endblock %}

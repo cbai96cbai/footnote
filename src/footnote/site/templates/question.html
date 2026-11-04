@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Footnote: {{ q.id }}{% endblock %}
+{% block content %}
+<p class="muted"><a href="{{ root }}index.html">Results</a> / {{ q.id }}</p>
+<h1>{{ q.question|excerpt }}</h1>
+<p class="muted">{{ doc.company }}, {{ doc.doc_type }} {{ doc.doc_period }}.
+<a href="{{ source }}" rel="noopener">Open the filing source</a>.</p>
+<h2>Reference answer</h2>
+<p class="gold">{{ gold.answer|excerpt }}</p>
+<p class="muted">Reference answer from FinanceBench (CC BY-NC 4.0).</p>
+
+{% for e in entries %}
+{% set p = e.pred %}
+<section class="system">
+  <h2>{{ e.label }} <span class="badge {{ e.verdict.label }}">{{ e.verdict.label }}</span></h2>
+  {% if p.answer and not p.answer.declined %}
+  <p>{{ p.answer.answer|excerpt }}</p>
+  {% elif p.answer %}
+  <p class="muted">Declined: {{ (p.answer.decline_reason or "no reason given")|excerpt }}</p>
+  {% else %}
+  <p class="muted">No answer ({{ p.status }}).</p>
+  {% endif %}
+  <p class="muted">Grader ({{ e.verdict.method }}): {{ e.verdict.rationale|excerpt }}</p>
+  {% if p.answer %}
+  {% for c in p.answer.citations %}
+  <blockquote><mark>{{ c.quote|excerpt }}</mark>
+    <footer>page {{ c.page_index + 1 }} of the benchmark PDF, {{ doc.doc_name }}</footer></blockquote>
+  {% endfor %}
+  {% endif %}
+  {% if p.trace %}
+  <details>
+    <summary>Trace ({{ p.trace|length }} steps)</summary>
+    <ol class="trace">
+    {% for s in p.trace %}
+      <li><code>{{ s.tool }}</code> <code>{{ s.arguments|step_arguments }}</code>
+      <div class="muted">{{ s.summary|excerpt(200) }}</div></li>
+    {% endfor %}
+    </ol>
+  </details>
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

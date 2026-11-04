@@ -1,4 +1,4 @@
-"""footnote eval | compare | failures."""
+"""footnote eval | compare | failures | site."""
 
 from pathlib import Path
 from typing import Annotated, cast, get_args
@@ -97,3 +97,16 @@ def failures_cmd(run_id: str, results_dir: ResultsDir = DEFAULT_RESULTS) -> None
     for t in FAILURE_TYPES:
         typer.echo(f"{t:15} {sum(x == t for x in types.values())}")
     typer.echo(f"{'total':15} {len(types)} of {len(verdicts)} questions; wrote failures.md")
+
+
+@app.command("site")
+def site_cmd(
+    results_dir: Annotated[
+        Path, typer.Option("--results", help="Where run folders live.")
+    ] = DEFAULT_RESULTS,
+    out: Annotated[Path, typer.Option(help="Where to write the static site.")] = Path("_site"),
+) -> None:
+    from footnote.site.build import build_site
+
+    build_site(results_dir, out)
+    typer.echo(f"site written to {out}")

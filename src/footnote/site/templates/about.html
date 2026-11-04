@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Footnote: about{% endblock %}
+{% block content %}
+<h1>About</h1>
+
+<h2>What this is</h2>
+<p>Footnote is a personal portfolio project. An agent reads SEC filings and answers questions
+about them, citing the exact quote behind each claim. Its answers are scored against baselines
+that use the same model, on the FinanceBench open sample, with intervals that resample whole
+companies.</p>
+
+<h2>Sources and licenses</h2>
+<ul>
+  <li>Questions and reference answers: the FinanceBench open sample by Patronus AI,
+  <a href="https://huggingface.co/datasets/PatronusAI/financebench">PatronusAI/financebench</a>,
+  licensed CC BY-NC 4.0. Paper: Islam et al., "FinanceBench: A New Benchmark for Financial
+  Question Answering", <a href="https://arxiv.org/abs/2311.11944">arXiv:2311.11944</a>.</li>
+  <li>The filings are the companies' public documents. This site does not republish them: it shows
+  short quotes (at most 400 characters), each attributed to its filing and page, and links to the
+  source.</li>
+  <li>Code: MIT license.</li>
+</ul>
+
+<h2>Page references</h2>
+<p>A reference reads "page N of the benchmark PDF". N is the benchmark's zero-based page index plus
+one (page_index + 1), so it counts pages the way a PDF viewer does. It can differ from the page
+number printed on the filing.</p>
+
+<h2>What the grounding check proves</h2>
+<p>Every quote exists in the filing, and every number is a correct rounding of a number in a cited
+quote or of a logged calculation over cited numbers. It does not prove a number means what the
+answer says (units and periods), which the grader measures.</p>
+
+<h2>How answers are graded</h2>
+<p>Numeric questions are matched against the reference value. Others are judged by a separate
+language-model grader that sees the question, the reference answer and the system's answer. Where
+grader agreement was checked against reference labels written by an AI, the figures are
+AI-reference estimates, not human agreement rates.</p>
+
+<h2>Limitations</h2>
+<ul>
+  <li>The sample is small, and questions cluster by company, so intervals are wide.</li>
+  <li>Every system is told which filing a question is about. This does not test finding the filing.</li>
+  <li>Development runs informed design choices and are labeled exploratory. Claims of difference
+  rest on the test split, which each system family ran once.</li>
+  <li>Grading by a model can be wrong in both directions.</li>
+  <li>The 2023 paper numbers use different models and human grading, so they are context only.</li>
+  <li>Source links are checked once and fall back to an SEC EDGAR search when a link is dead.</li>
+</ul>
+{% endblock %}

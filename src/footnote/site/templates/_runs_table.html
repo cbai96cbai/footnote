@@ -1,0 +1,30 @@
+{% macro runs_table(runs, show_split) %}
+<div class="scroll">
+<table>
+  <thead>
+    <tr>
+      <th>System</th>{% if show_split %}<th>Split</th>{% endif %}
+      <th class="num">Accuracy (95% interval)</th>
+      <th class="num">Graded</th>
+      <th class="num">Coverage</th>
+      <th class="num">Cost / question</th>
+      <th class="num">Mean latency</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in runs %}
+    {% set s = r.summary %}
+    <tr>
+      <td>{{ r.label }}<br><span class="muted">{{ r.run_id }}</span></td>
+      {% if show_split %}<td>{{ r.split }}</td>{% endif %}
+      <td class="num">{{ s.get("accuracy")|pct }}{% if s.get("ci95") %} <span class="muted">({{ s["ci95"][0]|pct }} to {{ s["ci95"][1]|pct }})</span>{% endif %}</td>
+      <td class="num">{{ s.get("n_graded", "n/a") }}/{{ s.get("n", "n/a") }}</td>
+      <td class="num">{{ s.get("coverage")|pct }}</td>
+      <td class="num">{{ s.get("cost_per_question")|usd }}</td>
+      <td class="num">{{ s.get("mean_latency_s")|seconds }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endmacro %}
