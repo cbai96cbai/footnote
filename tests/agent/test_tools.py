@@ -59,3 +59,15 @@ def test_trace_args_cuts_only_long_quote_strings() -> None:
     assert out["query"] == long and out["citations"][1]["quote"] == "short"
     assert len(out["citations"][0]["quote"]) == 400 and out["citations"][0]["quote"][-1] == "…"
     assert args["citations"][0]["quote"] == long  # the input is not changed
+
+
+def test_tool_results_show_hyphen_marks_as_hyphens_and_a_displayed_quote_verifies() -> None:
+    from footnote.verify import quote_in_page
+
+    raw = "Registration under Regulation S\x02T and forward\x02looking statements."
+    b = Toolbox({0: raw}, FakeIndex([(0, raw)]))
+    for out in (b.run("read_page", {"page_index": 0}), b.run("search_filing", {"query": "x"})):
+        assert "\x02" not in out.content and "Regulation S-T and forward-looking" in out.content
+        shown = out.content.split("\n", 1)[1]
+        assert quote_in_page("Regulation S-T and forward-looking statements", shown)
+        assert quote_in_page("Regulation S-T and forward-looking statements", raw)

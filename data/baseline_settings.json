@@ -1,5 +1,6 @@
 {
   "long-context": {
+    "display": "page text is shown with U+0002 and the soft hyphen (U+00AD) written as '-'",
     "family": "long-context",
     "limits": {
       "max_completion_tokens": 3000,
@@ -16,6 +17,7 @@
     "version": "1"
   },
   "no-docs": {
+    "display": "page text is shown with U+0002 and the soft hyphen (U+00AD) written as '-'",
     "family": "no-docs",
     "limits": {
       "max_completion_tokens": 3000,
@@ -31,6 +33,7 @@
     "version": "1"
   },
   "plain-retrieval": {
+    "display": "page text is shown with U+0002 and the soft hyphen (U+00AD) written as '-'",
     "family": "plain-retrieval",
     "limits": {
       "max_completion_tokens": 3000,

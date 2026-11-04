@@ -11,6 +11,7 @@ from footnote.baselines.common import (
 )
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS
+from footnote.corpus.normalize import display_text
 from footnote.llm.client import LLMClient
 from footnote.prediction import NO_USAGE, Prediction, Step
 from footnote.retrieval.index import DocIndex, ScoredPassage, retrieval_settings
@@ -38,7 +39,8 @@ def open_index(doc_name: str) -> Searchable:
 
 def _messages(q: AgentQuestion, hits: list[ScoredPassage]) -> list[dict[str, Any]]:
     body = JOINER.join(
-        PASSAGE_TEMPLATE.format(index=h.passage.page_index, text=h.passage.text) for h in hits
+        PASSAGE_TEMPLATE.format(index=h.passage.page_index, text=display_text(h.passage.text))
+        for h in hits
     )
     user = USER_TEMPLATE.format(filing=filing_line(q), passages=body, question=q.question)
     return [{"role": "system", "content": INSTRUCTIONS}, {"role": "user", "content": user}]

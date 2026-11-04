@@ -8,6 +8,7 @@ from typing import Any
 from footnote.answers import AgentAnswer
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS, MAX_CALLS, PRICES, CallLimits, call_max_cost
+from footnote.corpus.normalize import DISPLAY_RULE
 from footnote.llm.client import CallFailed, LLMClient, Usage
 from footnote.prediction import NO_USAGE, RATE_LIMITED, Prediction, Step, add_usage
 
@@ -45,6 +46,7 @@ def family_config(family: str, limits_key: str, user_template: str, packing: str
         "max_calls": MAX_CALLS["baseline"],
         "prompt": {"system": INSTRUCTIONS, "user": user_template},
         "packing": packing,
+        "display": DISPLAY_RULE,
     }
 
 

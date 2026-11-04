@@ -19,6 +19,7 @@ from footnote.agent.prompts import (
 from footnote.agent.tools import cap
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS, MAX_CALLS, PRICES, call_max_cost
+from footnote.corpus.normalize import DISPLAY_RULE
 from footnote.corpus.parse import load_pages
 from footnote.llm.client import LLMClient
 from footnote.prediction import NO_USAGE, Prediction, Step
@@ -69,6 +70,7 @@ CONFIG: dict[str, Any] = {
         "trimming": "oldest tool results are replaced by their summaries until the call fits",
     },
     "tools": TOOLS,
+    "display": DISPLAY_RULE,
     "retrieval": retrieval_settings(),
 }
 

@@ -12,6 +12,7 @@ from footnote.baselines.common import (
 )
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS
+from footnote.corpus.normalize import display_text
 from footnote.corpus.parse import PARSER_VERSION, Page, load_pages
 from footnote.llm.client import LLMClient
 from footnote.llm.tokens import count_input_tokens, count_text_tokens
@@ -31,7 +32,7 @@ PACKING = (
 
 
 def _block(p: Page) -> str:
-    return PAGE_TEMPLATE.format(index=p.page_index, text=p.text)
+    return PAGE_TEMPLATE.format(index=p.page_index, text=display_text(p.text))
 
 
 def _messages(q: AgentQuestion, pages: list[Page]) -> list[dict[str, Any]]:

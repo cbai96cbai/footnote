@@ -15,6 +15,14 @@ def map_hyphen_marks(s: str) -> str:
     return s.translate(_HYPHEN_MARKS)
 
 
+DISPLAY_RULE = "page text is shown with U+0002 and the soft hyphen (U+00AD) written as '-'"
+
+
+def display_text(s: str) -> str:
+    """Page or passage text as a model sees it: the hyphen marks as '-', nothing else changed."""
+    return map_hyphen_marks(s)
+
+
 def normalize_text(s: str) -> str:
     """NFKC, hyphen marks to "-", join `-` + line break without a space, collapse whitespace,
     strip, casefold."""

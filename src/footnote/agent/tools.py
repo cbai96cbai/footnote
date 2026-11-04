@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from footnote.corpus.normalize import display_text
 from footnote.llm.tokens import count_text_tokens
 from footnote.retrieval.index import ScoredPassage
 from footnote.verify import Calc, evaluate_expression
@@ -97,7 +98,9 @@ class Toolbox:
             raise ToolError(f"k must be between 1 and {MAX_K}")
         hits = self.index.search(query, k)
         pages = [h.passage.page_index for h in hits]
-        body = "\n\n".join(f"[page_index {h.passage.page_index}]\n{h.passage.text}" for h in hits)
+        body = "\n\n".join(
+            f"[page_index {h.passage.page_index}]\n{display_text(h.passage.text)}" for h in hits
+        )
         return ToolOutput(
             body or "no passages found",
             cap(f"search {query!r}: {len(hits)} passages, page_index {sorted(set(pages))}"),
@@ -108,7 +111,7 @@ class Toolbox:
         n = _int_arg(args, "page_index")
         if n not in self.pages:
             raise ToolError(f"page_index {n} is out of range (0 to {len(self.pages) - 1})")
-        text, cut = cut_to_tokens(self.pages[n], READ_PAGE_MAX_TOKENS)
+        text, cut = cut_to_tokens(display_text(self.pages[n]), READ_PAGE_MAX_TOKENS)
         note = "\n[page cut at 3,000 tokens]" if cut else ""
         return ToolOutput(
             f"[page_index {n}]\n{text}{note}",

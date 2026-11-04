@@ -165,3 +165,23 @@ def test_config_hash_changes_with_every_retrieval_setting(monkeypatch: pytest.Mo
     assert agent_system.CONFIG["retrieval"] == index_mod.retrieval_settings()
     assert plain_retrieval.SPEC.config["retrieval"]["chunker_version"] == "1"
     assert long_context.SPEC.config["parser_version"] == parse.PARSER_VERSION
+
+
+def test_long_context_shows_hyphen_marks_as_hyphens_and_counts_tokens_on_that_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pages = [Page("ACME_2020_10K", 0, "Regulation S\x02T and forward\x02looking")]
+    monkeypatch.setattr(long_context, "load_pages", lambda doc: pages)
+    client = FakeClient([res()])
+    long_context.run(Q, client)  # type: ignore[arg-type]
+    user = client.calls[0][1]["content"]
+    assert "Regulation S-T and forward-looking" in user and "\x02" not in user
+    assert long_context._block(pages[0]) == "[page 0]\nRegulation S-T and forward-looking"
+
+
+def test_every_config_states_the_display_rule() -> None:
+    from footnote.agent.system import CONFIG
+    from footnote.corpus.normalize import DISPLAY_RULE
+
+    assert CONFIG["display"] == DISPLAY_RULE
+    assert all(c["display"] == DISPLAY_RULE for c in baseline_settings().values())

@@ -57,3 +57,17 @@ def test_plain_retrieval_prompt_has_no_gold_fields(monkeypatch: pytest.MonkeyPat
     text = json.dumps(client.calls[0]).lower()
     for banned in ("justification", "evidence", "gold", "financebench_id"):
         assert banned not in text
+
+
+def test_passages_with_extractor_hyphen_marks_are_shown_with_a_hyphen(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    idx = FakeIndex()
+    idx.hits[0] = ScoredPassage(
+        Passage("D:p5:0", "D", 5, "forward\x02looking\u00adstatements"), 1.0
+    )
+    monkeypatch.setattr(plain_retrieval, "open_index", lambda doc: idx)
+    client = FakeClient([res()])
+    plain_retrieval.run(Q, client)  # type: ignore[arg-type]
+    user = client.calls[0][1]["content"]
+    assert "forward-looking-statements" in user and "\x02" not in user and "\u00ad" not in user
