@@ -9,14 +9,14 @@ Footnote answers questions about SEC filings from the FinanceBench open sample,
 then measures itself against simpler systems that use the same model, on a test split that is run
 once.
 
-- **Answers with quotes.** Each answer cites the filing page and the exact quote behind it. A code
+- **Answers with quotes.** Each answer cites the filing page and the quote behind it. A code
   check confirms the quotes exist and that the final number follows from them.
 - **Compared on equal terms.** The agent is scored against three baselines (no documents, plain
   retrieval, long context) with the same model and the same grading; the systems that read
   documents all get the same filing.
-- **Honest uncertainty.** Accuracy comes with a 95% interval that resamples whole companies, plus
-  answer coverage, cost per question and latency. A static site shows every answer, citation,
-  trace and grader verdict, including the failures.
+- **Uncertainty.** Accuracy comes with a 95% interval that resamples whole companies, plus
+  answer coverage, cost per question and latency. A static site shows each answer, its
+  trace and the grader's verdict, including failures; citations are shown for answered questions.
 
 ## Architecture
 
@@ -37,7 +37,7 @@ flowchart LR
 ## Results
 
 Not yet available. The table is filled in after the single frozen run of each system on the test
-split (57 questions, 11 companies). No number below is a measurement.
+split (57 questions, 11 companies). No number in this table is a measurement yet.
 
 | System | Accuracy (95% interval, company-clustered) | Answer coverage | Cost per question | Mean latency |
 | :- | :-: | :-: | :-: | :-: |
@@ -65,10 +65,11 @@ selected away.
 - **Equal document access.** Every system is told which filing a question is about. The comparison
   then isolates how a system uses the document, not whether it can find it. Finding the filing
   among all 84 is a harder, separate setting that is not tested here.
-- **Numbers are graded by code.** Numeric questions are scored on a structured final value (number
-  and unit) against the reference with a stated tolerance, so they need no model grader. The
-  remaining questions go to a grader that is a different model from the agent, never told which
-  system produced the answer, using a fixed rubric.
+- **Numbers are graded by code where possible.** A question is scored by code only if it is a
+  metrics-generated question whose reference answer is a single number and the answer gives a
+  structured final value (number and unit); the match uses a stated tolerance. Every other answer
+  goes to a grader that is a different model from the agent, never told which system produced the
+  answer, using a fixed rubric.
 - **The split is frozen first.** Questions are split by company (no company in both halves) before
   any tuning, and the test split is run once per system family; a repeat is refused unless a reason
   is recorded. Development runs are labeled exploratory on the site.
@@ -82,7 +83,8 @@ selected away.
 
 After the agent submits, code checks two things.
 
-1. Every quote it cites appears verbatim on the cited page of the filing.
+1. Every quote it cites appears on the cited page of the filing, after normalizing whitespace, line breaks and
+   hyphenation.
 2. The final numeric answer is a correct rounding of a number in a cited quote, or the result of a
    logged calculation over quoted numbers (plus small constants such as /2, x100, x365).
 
@@ -102,10 +104,10 @@ measures correctness; the check measures traceability.
 - Code: MIT.
 
 Corpus quality, measured against the benchmark's own evidence passages (`results/corpus_quality.json`):
-for 93.1% (176 of 189) the passage is found on the right page by word coverage of at least 90%.
-Only 33.3% match word for word, because PDF extraction orders table cells differently from the
-benchmark's text; the page is right, the character sequence is not. The grounding check therefore
-runs against our extracted text, not the benchmark's.
+93.1% (176 of 189) are found on the right page by word coverage of at least 90%, and 33.3% match
+character for character. The cause of the gap was not measured. The 13 passages below the threshold
+are listed in that file; for those, the benchmark's own text runs table labels together without
+spaces. The grounding check runs against our extracted text, not the benchmark's.
 
 ## Run locally
 
@@ -120,7 +122,8 @@ The code reads settings from the process environment only; it does not load `.en
 `set -a; source .env; set +a`). `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY` are required.
 `FOOTNOTE_AGENT_DEPLOYMENT` and `FOOTNOTE_GRADER_DEPLOYMENT` default to `footnote-agent` and
 `footnote-grader`; `FOOTNOTE_CACHE` (PDFs and indexes) defaults to `~/.cache/footnote`. The agent
-runs on gpt-5-mini and the grader on gpt-4.1-mini, as Azure OpenAI deployments.
+are configured to gpt-5-mini (agent) and gpt-4.1-mini (grader) Azure OpenAI deployments, and the
+prices in the code assume those models.
 
 ```
 uv run footnote eval --system agent --split gate --run-id agent-gate-1
@@ -129,8 +132,8 @@ uv run footnote failures agent-gate-1                  # failures by type
 uv run footnote site                                   # writes _site/
 ```
 
-Systems are `no-docs`, `plain-retrieval`, `long-context` and `agent`. Splits are `gate` (30
-development questions for pipeline checks), `dev` (93) and `test` (57). Checks: `uv run ruff check .`,
+Systems are `no-docs`, `plain-retrieval`, `long-context` and `agent`. Splits are `dev` (93
+questions, of which 30 form the `gate` set for pipeline checks) and `test` (57). Checks: `uv run ruff check .`,
 `uv run mypy src`, `uv run pytest`.
 
 ## Limitations
