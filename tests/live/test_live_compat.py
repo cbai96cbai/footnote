@@ -3,6 +3,7 @@ uv run pytest -m live tests/live. Admitted through the Tally with its own maximu
 
 import json
 from decimal import Decimal
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
@@ -10,7 +11,7 @@ from pydantic import BaseModel
 from footnote.budget.limits import LIMITS, PRICES, CallLimits, call_max_cost
 from footnote.budget.tally import Tally
 from footnote.config import Settings
-from footnote.llm.client import LLMClient
+from footnote.llm.client import CallFailed, ChatResult, LLMClient
 from footnote.llm.tokens import count_input_tokens
 
 pytestmark = pytest.mark.live
@@ -63,6 +64,19 @@ def test_live_compat() -> None:
     spent = Decimal(0)
     try:
         client = LLMClient(s)
+        _chat = client.chat
+
+        def charged_chat(*a: Any, **k: Any) -> ChatResult:
+            nonlocal spent
+            try:
+                r = _chat(*a, **k)
+            except CallFailed as exc:
+                spent += exc.usage.cost
+                raise
+            spent += r.usage.cost
+            return r
+
+        client.chat = charged_chat  # type: ignore[method-assign]  # every call is accumulated
         agent, grader = s.agent_deployment, s.grader_deployment
 
         # one tool-call round trip
@@ -70,7 +84,6 @@ def test_live_compat() -> None:
             {"role": "user", "content": "Use the add tool to add 2 and 3."}
         ]
         first = client.chat(msgs, deployment=agent, limits=LIMITS["agent"], tools=TOOLS)
-        spent += first.usage.cost
         assert first.message["tool_calls"]
         call = first.message["tool_calls"][0]
         args = json.loads(call["function"]["arguments"])
@@ -79,7 +92,6 @@ def test_live_compat() -> None:
             {"role": "tool", "tool_call_id": call["id"], "content": str(args["a"] + args["b"])},
         ]
         second = client.chat(msgs, deployment=agent, limits=LIMITS["agent"], tools=TOOLS)
-        spent += second.usage.cost
         assert "5" in (second.message.get("content") or "")
         assert count_input_tokens(msgs, TOOLS, None) >= second.usage.input_tokens
 
@@ -88,7 +100,6 @@ def test_live_compat() -> None:
         graded = client.chat(
             gmsgs, deployment=grader, limits=LIMITS["grader"], response_schema=Verdict
         )
-        spent += graded.usage.cost
         assert isinstance(graded.parsed, Verdict) and graded.parsed.correct
         assert count_input_tokens(gmsgs, None, Verdict) >= graded.usage.input_tokens
 
@@ -98,7 +109,6 @@ def test_live_compat() -> None:
             deployment=agent,
             limits=short,
         )
-        spent += cut.usage.cost
         assert cut.finish_reason == "length"
     finally:
         tally.settle("live-compat", spent if spent else maximum)

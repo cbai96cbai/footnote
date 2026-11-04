@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 from typing import Any
 
@@ -23,9 +24,9 @@ def ok(
     parsed: Any = None,
     tool_calls: Any = None,
 ) -> Any:
-    from openai.types.chat.parsed_chat_completion import ParsedChatCompletion
+    from openai.types.chat import ChatCompletion
 
-    return ParsedChatCompletion.model_validate(
+    return ChatCompletion.model_validate(
         {
             "id": "c1",
             "object": "chat.completion",
@@ -38,7 +39,6 @@ def ok(
                     "message": {
                         "role": "assistant",
                         "content": content,
-                        "parsed": parsed,
                         "tool_calls": tool_calls,
                     },
                 }
@@ -72,8 +72,6 @@ class FakeSDK:
 
     def create(self, **kwargs: Any) -> Any:
         return self._next(kwargs)
-
-    parse = create
 
 
 def client(script: list[Any], sleeps: list[float] | None = None) -> tuple[LLMClient, FakeSDK]:
@@ -173,11 +171,56 @@ class Verdict(BaseModel):
     answer: str
 
 
+def structured(content: str, finish: str = "stop") -> Any:
+    return ok(content=content, finish=finish, pt=700, ct=40)
+
+
 def test_structured_output_returns_parsed() -> None:
-    c, sdk = client([ok(content='{"answer": "42"}', parsed={"answer": "42"})])
+    c, sdk = client([structured('{"answer": "42"}')])
     r = c.chat(MSGS, deployment="footnote-grader", limits=LIMITS["grader"], response_schema=Verdict)
-    assert sdk.calls[0]["response_format"] is Verdict
-    assert r.parsed == Verdict(answer="42") or r.parsed == {"answer": "42"}
+    rf = sdk.calls[0]["response_format"]
+    assert rf["type"] == "json_schema" and rf["json_schema"]["strict"] is True
+    assert r.parsed == Verdict(answer="42") and r.parse_error is None
+
+
+def test_input_count_uses_the_payload_sent() -> None:
+    from footnote.llm.tokens import count_input_tokens, count_text_tokens, response_format_payload
+
+    base = count_input_tokens(MSGS, None, None)
+    expected = base + count_text_tokens(json.dumps(response_format_payload(Verdict)))
+    assert count_input_tokens(MSGS, None, Verdict) == expected
+
+
+def test_length_on_structured_call_is_charged_and_signalled() -> None:
+    c, _ = client([structured('{"answer": "4', finish="length")])
+    r = c.chat(MSGS, deployment="footnote-grader", limits=LIMITS["grader"], response_schema=Verdict)
+    assert r.finish_reason == "length" and r.parsed is None
+    assert r.usage.cost == Decimal("0.00028") + Decimal("0.000064") and not r.usage.charged_max
+
+
+def test_content_filter_is_charged_and_signalled() -> None:
+    c, _ = client([structured("", finish="content_filter")])
+    r = c.chat(MSGS, deployment="footnote-grader", limits=LIMITS["grader"], response_schema=Verdict)
+    assert r.finish_reason == "content_filter" and r.parsed is None and r.usage.cost > 0
+
+
+def test_invalid_json_is_charged_and_distinguishable_from_length() -> None:
+    for bad in ("not json", '{"wrong": 1}'):
+        c, _ = client([structured(bad)])
+        r = c.chat(
+            MSGS, deployment="footnote-grader", limits=LIMITS["grader"], response_schema=Verdict
+        )
+        assert r.finish_reason == "stop" and r.parsed is None and r.parse_error
+        assert r.usage.input_tokens == 700 and r.usage.cost > 0
+
+
+def test_empty_choices_is_charged_and_signalled() -> None:
+    resp = ok(pt=500, ct=0)
+    resp.choices = []
+    c, _ = client([resp])
+    r = c.chat(MSGS, deployment="footnote-agent", limits=LIMITS["agent"])
+    assert r.finish_reason == "no_choices" and r.message == {}
+    assert r.usage.input_tokens == 500 and r.usage.cost == Decimal("0.000125")
 
 
 def test_tools_passed_through_and_tool_calls_in_message() -> None:
@@ -192,4 +235,3 @@ def test_tools_passed_through_and_tool_calls_in_message() -> None:
     r = c.chat(MSGS, deployment="footnote-agent", limits=LIMITS["agent"], tools=tools)
     assert sdk.calls[0]["tools"] == tools
     assert r.message["tool_calls"][0]["function"]["name"] == "f"
-    assert "parsed" not in r.message

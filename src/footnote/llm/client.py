@@ -3,6 +3,13 @@
 A call that returns usage is charged that usage. A call that was sent but returned no usage
 (timeout, dropped connection, any 5xx) is charged its maximum and not retried. HTTP 429 is
 rejected before processing: retried (3 attempts in all, backoff 2s then 8s) and charged nothing.
+
+Contract: once a response with usage arrives, chat() always returns a ChatResult carrying that
+charge; it never raises afterwards. Callers tell outcomes apart by finish_reason ("stop",
+"tool_calls", "length", "content_filter", or "no_choices" for an empty choices list) and, for
+structured output, by parsed (the validated model, or None) and parse_error (why parsing failed,
+None when parsing was not needed or succeeded). A cut-off call is therefore finish_reason ==
+"length", while unparseable content under another finish_reason has parse_error set.
 """
 
 import time
@@ -12,18 +19,18 @@ from decimal import Decimal
 from typing import Any
 
 import openai
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from footnote.budget.limits import PRICES, CallLimits, Price, call_cost, call_max_cost
 from footnote.config import Settings
-from footnote.llm.tokens import count_input_tokens
+from footnote.llm.tokens import count_input_tokens, response_format_payload
 
 API_VERSION = "2025-04-01-preview"
 TIMEOUT_S = 300
 MAX_ATTEMPTS = 3
 BACKOFF_S = (2.0, 8.0)
 # fields the SDK adds to its message objects that the API does not accept back
-_DROP_MESSAGE = ("parsed", "annotations", "audio")
+_DROP_MESSAGE = ("annotations", "audio")
 
 
 class InputTooLarge(Exception):
@@ -51,6 +58,7 @@ class ChatResult:
     finish_reason: str
     latency_s: float
     parsed: Any = None
+    parse_error: str | None = None
 
 
 def _plain_message(message: Any) -> dict[str, Any]:
@@ -113,11 +121,10 @@ class LLMClient:
         if tools:
             kwargs["tools"] = list(tools)
         if response_schema is not None:
-            kwargs["response_format"] = response_schema
+            kwargs["response_format"] = response_format_payload(response_schema)
         started = time.monotonic()
-        completion = self._send(kwargs, response_schema is not None, max_cost)
+        completion = self._send(kwargs, max_cost)
         latency = time.monotonic() - started
-        choice = completion.choices[0]
         if completion.usage is None:
             usage = Usage(0, 0, max_cost, charged_max=True)
         else:
@@ -127,18 +134,23 @@ class LLMClient:
                 u.completion_tokens,
                 call_cost(u.prompt_tokens, u.completion_tokens, price),
             )
-        return ChatResult(
-            message=_plain_message(choice.message),
-            usage=usage,
-            finish_reason=str(choice.finish_reason),
-            latency_s=latency,
-            parsed=getattr(choice.message, "parsed", None) if response_schema else None,
-        )
+        # from here on the charge is fixed: nothing below may raise
+        if not completion.choices:
+            return ChatResult({}, usage, "no_choices", latency)
+        choice = completion.choices[0]
+        message = _plain_message(choice.message)
+        finish = str(choice.finish_reason)
+        parsed: Any = None
+        parse_error: str | None = None
+        if response_schema is not None and finish != "length":
+            try:
+                parsed = response_schema.model_validate_json(message.get("content") or "")
+            except ValidationError as exc:
+                parse_error = f"{type(exc).__name__}: {exc.error_count()} errors"
+        return ChatResult(message, usage, finish, latency, parsed, parse_error)
 
-    def _send(self, kwargs: dict[str, Any], structured: bool, max_cost: Decimal) -> Any:
-        endpoint = (
-            self._sdk.chat.completions.parse if structured else (self._sdk.chat.completions.create)
-        )
+    def _send(self, kwargs: dict[str, Any], max_cost: Decimal) -> Any:
+        endpoint = self._sdk.chat.completions.create
         for attempt in range(MAX_ATTEMPTS):
             try:
                 return endpoint(**kwargs)

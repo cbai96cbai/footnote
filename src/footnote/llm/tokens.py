@@ -6,6 +6,9 @@ from functools import lru_cache
 from typing import Any
 
 import tiktoken
+
+# private SDK converter, used so the counted payload is exactly the one sent; uv.lock pins the SDK
+from openai.lib._parsing._completions import type_to_response_format_param
 from pydantic import BaseModel
 
 PER_MESSAGE = 4
@@ -41,6 +44,11 @@ def _message_tokens(message: Mapping[str, Any]) -> int:
     return total
 
 
+def response_format_payload(model: type[BaseModel]) -> Any:
+    """The strict JSON-schema response_format sent for a pydantic model."""
+    return type_to_response_format_param(model)
+
+
 def count_input_tokens(
     messages: Sequence[Mapping[str, Any]],
     tools: Sequence[Mapping[str, Any]] | None,
@@ -50,5 +58,5 @@ def count_input_tokens(
     if tools:
         total += count_text_tokens(json.dumps(tools))
     if response_schema is not None:
-        total += count_text_tokens(json.dumps(response_schema.model_json_schema()))
+        total += count_text_tokens(json.dumps(response_format_payload(response_schema)))
     return total
