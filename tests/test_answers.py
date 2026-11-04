@@ -45,3 +45,18 @@ def test_strict_schema_converts_and_all_fields_required() -> None:
     assert schema["additionalProperties"] is False
     for name, sub in schema["$defs"].items():
         assert set(sub["required"]) == set(sub["properties"]), name
+
+
+def test_final_value_schema_is_a_plain_number() -> None:
+    from openai.lib._parsing._completions import type_to_response_format_param
+
+    fmt = type_to_response_format_param(AgentAnswer)
+    schema = fmt["json_schema"]["schema"]  # type: ignore[typeddict-item]
+    assert schema["$defs"]["FinalValue"]["properties"]["value"]["type"] == "number"
+    assert fmt["json_schema"]["strict"] is True  # type: ignore[typeddict-item]
+
+
+@pytest.mark.parametrize("raw", ["1577", "1577.00", "-5", "1.6e9", "0.1"])
+def test_exact_decimals_still_validate(raw: str) -> None:
+    f = FinalValue.model_validate_json(f'{{"value": {raw}, "unit": "usd"}}')
+    assert f.value == Decimal(raw)

@@ -112,3 +112,43 @@ def test_huge_values_do_not_overflow_the_context() -> None:
     assert is_valid_rounding(
         one("123456789012345678901234567890.5"), D("123456789012345678901234567890.46")
     )
+
+
+@pytest.mark.parametrize(
+    ("text", "scale"),
+    [
+        ("1.2bn", "1e9"),
+        ("1.2 bn", "1e9"),
+        ("$1.2b", "1e9"),
+        ("$1.2B", "1e9"),
+        ("1.2 B", "1e9"),
+        ("1.2 Billion", "1e9"),
+        ("5mn", "1e6"),
+        ("5 mm", "1e6"),
+        ("$5M", "1e6"),
+        ("5 M", "1e6"),
+        ("5 million", "1e6"),
+        ("7k", "1e3"),
+        ("7 K", "1e3"),
+        ("$7K", "1e3"),
+        ("7 thousand", "1e3"),
+    ],
+)
+def test_scale_abbreviations(text: str, scale: str) -> None:
+    n = one(text)
+    assert n.scale == D(scale)
+    assert n.value in (D("1.2"), D(5), D(7))
+
+
+@pytest.mark.parametrize("text", ["12abc", "5m", "1.2bnx", "3Mbps", "9kg", "$5Mil"])
+def test_other_letters_never_truncate_into_a_number(text: str) -> None:
+    assert parse_numbers(text) == []
+
+
+def test_lowercase_m_alone_is_not_a_scale() -> None:
+    n = one("5 m wide")
+    assert n.scale == D(1)
+
+
+def test_abbreviated_scale_rounding() -> None:
+    assert is_valid_rounding(one("$1.6B"), D("1.577e9"))

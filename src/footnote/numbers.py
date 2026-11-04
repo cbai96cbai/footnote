@@ -8,7 +8,21 @@ import re
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal, localcontext
 
-_SCALES = {"thousand": Decimal("1e3"), "million": Decimal("1e6"), "billion": Decimal("1e9")}
+_K, _M, _B = Decimal("1e3"), Decimal("1e6"), Decimal("1e9")
+# words in any case; abbreviations exactly as listed (lowercase "m" alone is not a scale)
+_SCALES = {
+    "thousand": _K,
+    "million": _M,
+    "billion": _B,
+    "k": _K,
+    "K": _K,
+    "mn": _M,
+    "mm": _M,
+    "M": _M,
+    "bn": _B,
+    "b": _B,
+    "B": _B,
+}
 
 _NUMBER = re.compile(
     r"""
@@ -16,16 +30,21 @@ _NUMBER = re.compile(
     (?:(?<![\w.])(?P<neg>[-−]))?\s*
     \$?\s*
     (?:(?<![\w.])(?P<neg2>[-−]))?
-    (?<![A-Za-z0-9_])
+    (?<![A-Za-z0-9_])(?<!\d\.)
     (?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)
-    (?:\s*(?P<scale>thousand|million|billion)\b)?
+    (?:\s*(?P<scale>(?i:thousand|million|billion)|(?-i:bn|mn|mm|b|B|M|k|K)))?
     (?:(?P<pct>\s*%|\s+percent\b)|(?P<x>x\b))?
     (?(open)\s*\)|)
     (?![A-Za-z0-9_])
     (?!-[A-Za-z])
+    (?!\.\d)
     """,
     re.VERBOSE | re.IGNORECASE,
 )
+
+
+def _scale(word: str) -> Decimal:
+    return _SCALES.get(word) or _SCALES[word.lower()]
 
 
 @dataclass(frozen=True)
@@ -43,7 +62,7 @@ def parse_numbers(text: str) -> list[ParsedNumber]:
         value = Decimal(digits)
         if m["open"] or m["neg"] or m["neg2"]:
             value = -value
-        scale = _SCALES[m["scale"].lower()] if m["scale"] else Decimal(1)
+        scale = _scale(m["scale"]) if m["scale"] else Decimal(1)
         decimals = len(digits.split(".")[1]) if "." in digits else 0
         out.append(ParsedNumber(value, decimals, m["pct"] is not None, scale))
     return out
