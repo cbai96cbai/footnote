@@ -38,6 +38,7 @@ def _env() -> Environment:
     env.filters["excerpt"] = filters.excerpt
     env.filters["step_arguments"] = filters.step_arguments
     env.filters["quote_missing"] = filters.quote_missing
+    env.filters["final_value_only"] = filters.final_value_only
     env.filters["difference"] = filters.difference
     env.filters["pct"] = filters.pct
     env.filters["usd"] = filters.usd

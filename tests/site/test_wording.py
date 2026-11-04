@@ -22,6 +22,9 @@ def public_text(results: Path, tmp_path: Path, inject: dict[str, Any]) -> dict[s
         ],
         "index.html": (out / "index.html").read_text(),
         "about.html": (out / "about.html").read_text(),
+        "question.html": (out / "q" / "q1.html").read_text(),
+        "failures.html": (out / "failures.html").read_text(),
+        "base.html": (ROOT / "src/footnote/site/templates/base.html").read_text(),
     }
 
 
@@ -49,3 +52,13 @@ def test_readme_boundary_claim_is_exact_and_results_table_has_paired_column() ->
     readme = (ROOT / "README.md").read_text()
     assert "statically checks imports" in readme
     assert "Agent minus this system" in readme
+
+
+def test_about_states_how_checks_and_failure_types_differ_by_system(
+    public_text: dict[str, str],
+) -> None:
+    about = " ".join(public_text["about.html"].split())
+    assert "The no-documents system is not checked" in about
+    assert "checked without a calculator" in about and "cannot be traced" in about
+    assert "applies only to the agent" in about
+    assert "Failure types therefore differ by system" in about

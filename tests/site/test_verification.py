@@ -42,3 +42,32 @@ def test_unchecked_citation_is_not_shown_as_filing_text(
     html = _page(tmp_path, inject, verify_ok=None)
     assert QUOTE not in html and "<mark>" not in html
     assert "not checked" in html.lower()
+
+
+def test_quotes_found_but_final_value_untraced_shows_quotes_and_a_note(
+    tmp_path: Path, inject: dict[str, Any]
+) -> None:
+    html = _page(
+        tmp_path,
+        inject,
+        verify_ok=False,
+        problems=["final value not supported by a cited quote or calculation: 12.5"],
+    )
+    assert f"<mark>{QUOTE}</mark>" in html  # the quotes were found on the page
+    assert "of the benchmark PDF" in html
+    assert "Quote not found" not in html and "Citation check failed" not in html
+    assert "could not be traced to those quotes" in html
+    assert "12.5" in html  # the check's own message
+
+
+def test_a_missing_quote_still_hides_all_quotes_even_with_a_final_value_problem(
+    tmp_path: Path, inject: dict[str, Any]
+) -> None:
+    html = _page(
+        tmp_path,
+        inject,
+        verify_ok=False,
+        problems=["quote not found on page 4: 'x'", "final value not supported: 1"],
+    )
+    assert QUOTE not in html and "<mark>" not in html
+    assert "Quote not found in the filing" in html

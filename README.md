@@ -61,7 +61,9 @@ these are not a baseline for the table above.
 
 Added from the real test run, sorted by type: declined, unsupported, retrieval miss, wrong number,
 reasoning, error (`footnote failures` produces the per-run list). Failures are published, not
-selected away.
+selected away. Failure types differ by system: "unsupported" applies only to the agent (the
+baselines are checked afterwards without a calculator, and the no-documents system is not checked),
+and "retrieval miss" applies only to systems that read pages.
 
 ## Design decisions
 

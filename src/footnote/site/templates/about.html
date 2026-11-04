@@ -33,6 +33,13 @@ numeric answer is a correct rounding of a number in a cited quote, or the result
 calculation over quoted numbers (plus small constants such as /2, x100 and x365). Numbers in the
 explanation text are not checked. The check does not prove a number means what the answer says
 (units, periods); correctness is the grader's job, and the grader measures it.</p>
+<p>The check applies differently to each system. The agent checks its own answers before it
+submits them and has a calculator. The baselines are checked only afterwards, for information, and
+they are checked without a calculator, so an answer that needs arithmetic (a margin or a ratio, for
+example) cannot be traced to its quotes even when the quotes are on the page. The no-documents
+system has no pages to cite. The no-documents system is not checked. The "unsupported" failure
+type applies only to the agent, and "retrieval miss" applies only to systems that read pages.
+Failure types therefore differ by system.</p>
 
 <h2>How answers are graded</h2>
 <p>Code grades an answer only when the question is a metrics-generated one, its reference answer
