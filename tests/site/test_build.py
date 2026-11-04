@@ -158,5 +158,5 @@ def test_about_page_does_not_overclaim_grounding(
     build(results, out, inject)
     about = (out / "about.html").read_text()
     assert "every number" not in about.lower()
-    assert "verbatim on the cited page" in about
+    assert "hyphenation. The final" in about
     assert "not checked" in about
