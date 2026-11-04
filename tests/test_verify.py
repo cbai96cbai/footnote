@@ -1,7 +1,9 @@
 from decimal import Decimal
 
-from footnote.answers import AgentAnswer, Citation
-from footnote.verify import Calc, quote_in_page, verify_answer
+import pytest
+
+from footnote.answers import AgentAnswer, Citation, FinalValue
+from footnote.verify import Calc, evaluate_expression, quote_in_page, verify_answer
 
 
 def ans(text: str, quotes: list[str], declined: bool = False) -> AgentAnswer:
@@ -56,13 +58,13 @@ def test_unscaled_number_needs_exact_rounding() -> None:
 
 
 def test_calc_with_uncited_operand_fails() -> None:
-    calc = Calc("999", [Decimal(999)], Decimal(999))
+    calc = evaluate_expression("999")
     assert not check("It is 999.", ["Net sales 1,577"], "Net sales 1,577", calcs=[calc])[0]
 
 
 def test_calc_with_cited_operands_ok() -> None:
     page = "Gross profit 1,018 and revenue 1,557"
-    calc = Calc("1018 / 1557", [Decimal(1018), Decimal(1557)], Decimal(1018) / Decimal(1557))
+    calc = evaluate_expression("1018 / 1557")
     ok, problems = check(
         "Margin was 65.4%.", ["Gross profit 1,018", "revenue 1,557"], page, calcs=[calc]
     )
@@ -91,3 +93,60 @@ def test_accounting_parentheses_with_scale_word_after() -> None:
 def test_declined_answer_checks_citations_only() -> None:
     a = ans("Not found; 999 pages searched.", [], declined=True)
     assert verify_answer(a, {0: "x"}, "?", []) == (True, [])
+
+
+def fv_answer(text: str, quotes: list[str], value: str, unit: str) -> AgentAnswer:
+    a = ans(text, quotes)
+    return a.model_copy(update={"final_value": FinalValue(value=Decimal(value), unit=unit)})  # type: ignore[arg-type]
+
+
+def test_final_value_must_be_grounded() -> None:
+    page = "Net sales 1,577"
+    good = fv_answer("Net sales were $1,577 million.", ["Net sales 1,577"], "1577", "usd")
+    assert verify_answer(good, {0: page}, "?", [])[0]
+    in_billions = fv_answer("Net sales were $1,577 million.", ["Net sales 1,577"], "1.6", "usd")
+    assert verify_answer(in_billions, {0: page}, "?", [])[0]
+    bad = fv_answer("Net sales were $1,577 million.", ["Net sales 1,577"], "4242", "usd")
+    ok, problems = verify_answer(bad, {0: page}, "?", [])
+    assert not ok and any("final value" in p for p in problems)
+    pct = fv_answer("Rate 65.4%", ["Rate 65.4%"], "65.4", "percent")
+    assert verify_answer(pct, {0: "Rate 65.4%"}, "?", [])[0]
+
+
+def test_quote_matches_only_at_token_boundaries() -> None:
+    assert not quote_in_page("77", "Net sales 1,777 here")
+    assert not quote_in_page("9202", "the years 2019-2020")
+    assert not quote_in_page("sales", "wholesales rose")
+    assert quote_in_page("1,777", "Net sales 1,777 here")
+    assert quote_in_page("Net sales", "Total Net sales, up")
+    assert not check("It was 77.", ["77"], "Net sales 1,777")[0]
+
+
+def test_evaluate_expression_is_safe_and_exact() -> None:
+    c = evaluate_expression("(1,018 - 500) × 2 ÷ 4")
+    assert c.operands == [Decimal(1018), Decimal(500), Decimal(2), Decimal(4)]
+    assert c.result == Decimal(259)
+    assert evaluate_expression("-3 + 2 ** 2").result == Decimal(1)
+    for bad in ("__import__('os')", "abs(3)", "1 +", "1/0", "2 ** 99", "x + 1", "'a'", ""):
+        with pytest.raises(ValueError):
+            evaluate_expression(bad)
+
+
+def test_calc_must_match_its_expression() -> None:
+    page = "Net sales 1,577"
+    forged = Calc("1577*1", [Decimal(1577)], Decimal(999))
+    assert not check("It is 999.", ["Net sales 1,577"], page, calcs=[forged])[0]
+    empty = Calc("", [], Decimal(999))
+    assert not check("It is 999.", ["Net sales 1,577"], page, calcs=[empty])[0]
+    wrong_ops = Calc("1577*1", [Decimal(5)], Decimal(1577))
+    assert not check("It is 1,577 times two.", [], page, calcs=[wrong_ops])[0]
+    honest = evaluate_expression("1577 + 1577")
+    assert check("It is 3,154.", ["Net sales 1,577"], page, calcs=[honest])[0]
+
+
+def test_quote_longer_than_400_characters_fails() -> None:
+    page = "Net sales 1,577 " + "x " * 300
+    ok, problems = check("Sales 1,577.", [page], page)
+    assert not ok and any("too long" in p for p in problems)
+    ok, _ = check("Sales 1,577.", [page[:400]], page)
+    assert ok
