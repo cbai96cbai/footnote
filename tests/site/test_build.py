@@ -48,6 +48,21 @@ def test_featured_excludes_health_care(
     assert 'href="q/q3.html"' not in index
 
 
+def test_health_care_excluded_from_every_example_list(
+    results: Path, tmp_path: Path, inject: dict[str, Any]
+) -> None:
+    inject["failures"] = [
+        {"id": "q3", "system": "agent", "note": "PFIZER-NOTE"},
+        {"id": "q2", "system": "agent", "note": "ACME-NOTE"},
+    ]
+    out = tmp_path / "out"
+    build(results, out, inject)
+    failures = (out / "failures.html").read_text()
+    assert "ACME-NOTE" in failures and "PFIZER-NOTE" not in failures
+    assert "q/q3.html" not in failures and "q/q3.html" not in (out / "index.html").read_text()
+    assert (out / "q" / "q3.html").exists()
+
+
 def test_build_is_deterministic(results: Path, tmp_path: Path, inject: dict[str, Any]) -> None:
     a, b = tmp_path / "a", tmp_path / "b"
     build(results, a, inject)
@@ -58,17 +73,18 @@ def test_build_is_deterministic(results: Path, tmp_path: Path, inject: dict[str,
         assert (a / f).read_bytes() == (b / f).read_bytes(), f
 
 
-def test_source_link_falls_back_to_edgar(
+def test_source_link_adds_edgar_search_when_not_ok(
     results: Path, tmp_path: Path, inject: dict[str, Any]
 ) -> None:
     out = tmp_path / "out"
     build(results, out, inject)
     acme = (out / "q" / "q1.html").read_text()
-    assert "https://a.test/x" not in acme
+    assert 'href="https://a.test/x"' in acme  # the original link stays
     assert "https://www.sec.gov/cgi-bin/browse-edgar?company=Acme" in acme
     assert "type=10-K" in acme
     assert "page 5 of the benchmark PDF" in acme
-    assert "https://p.test/x" in (out / "q" / "q3.html").read_text()
+    ok_page = (out / "q" / "q3.html").read_text()
+    assert "https://p.test/x" in ok_page and "EDGAR search" not in ok_page
 
 
 def test_pages_exist_and_labels(results: Path, tmp_path: Path, inject: dict[str, Any]) -> None:

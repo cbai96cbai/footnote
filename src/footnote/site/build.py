@@ -11,7 +11,7 @@ from footnote.benchmark import AgentQuestion, DocInfo, doc_info, load_questions
 from footnote.eval.gold import Gold, load_gold
 from footnote.site import filters
 from footnote.site.chart import Bar, accuracy_chart
-from footnote.site.links import load_link_status, source_url
+from footnote.site.links import edgar_fallback, load_link_status
 from footnote.site.runs import Run, load_runs, split_runs
 
 HERE = Path(__file__).parent
@@ -64,7 +64,8 @@ def _question_page(
         "q": q,
         "gold": gold,
         "doc": doc,
-        "source": source_url(doc, link_status),
+        "source": doc.doc_link,
+        "edgar": edgar_fallback(doc, link_status),
         "entries": entries,
     }
 
@@ -95,13 +96,14 @@ def build_site(
         i: _question_page(by_id[i], shown, gold[i], docs[by_id[i].doc_name], link_status)
         for i in ids
     }
-    # a Health Care company stays in the scores and on its own page, never in the featured list
-    featured_pages = [
-        pages[i]
-        for i in featured_ids
-        if i in pages and pages[i]["doc"].gics_sector != HIDDEN_SECTOR
-    ]
-    failure_items = [{**f, "page": pages[f["id"]]} for f in failure_list if f.get("id") in pages]
+
+    # a Health Care company stays in the scores and on its own page, never in a curated example list
+    def curated(ids: list[str]) -> list[str]:
+        return [i for i in ids if i in pages and pages[i]["doc"].gics_sector != HIDDEN_SECTOR]
+
+    featured_pages = [pages[i] for i in curated(featured_ids)]
+    kept = set(curated([f.get("id", "") for f in failure_list]))
+    failure_items = [{**f, "page": pages[f["id"]]} for f in failure_list if f.get("id") in kept]
 
     env = _env()
     out_dir.mkdir(parents=True, exist_ok=True)

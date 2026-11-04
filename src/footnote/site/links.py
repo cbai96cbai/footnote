@@ -36,10 +36,11 @@ def edgar_search_url(company: str, doc_type: str) -> str:
     return f"{EDGAR}?{urllib.parse.urlencode(params)}"
 
 
-def source_url(doc: DocInfo, status: dict[str, Any]) -> str:
+def edgar_fallback(doc: DocInfo, status: dict[str, Any]) -> str | None:
+    """An EDGAR search link, offered next to the original link when it is not known to work."""
     entry = status.get(doc.doc_name)
     if entry and entry.get("ok"):
-        return doc.doc_link
+        return None
     return edgar_search_url(doc.company, doc.doc_type)
 
 

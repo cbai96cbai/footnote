@@ -4,7 +4,8 @@
 <p class="muted"><a href="{{ root }}index.html">Results</a> / {{ q.id }}</p>
 <h1>{{ q.question|excerpt }}</h1>
 <p class="muted">{{ doc.company }}, {{ doc.doc_type }} {{ doc.doc_period }}.
-<a href="{{ source }}" rel="noopener">Open the filing source</a>.</p>
+<a href="{{ source }}" rel="noopener">Open the filing source</a>{% if edgar %}
+(<a href="{{ edgar }}" rel="noopener">EDGAR search</a>){% endif %}.</p>
 <h2>Reference answer</h2>
 <p class="gold">{{ gold.answer|excerpt }}</p>
 <p class="muted">Reference answer from FinanceBench (CC BY-NC 4.0).</p>
