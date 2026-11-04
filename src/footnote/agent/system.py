@@ -4,8 +4,18 @@ import time
 from dataclasses import asdict
 from typing import Any
 
+from footnote.agent import tools as tool_limits
 from footnote.agent.loop import FAMILY, VERSION, run_agent
-from footnote.agent.prompts import SYSTEM_PROMPT, TOOLS, USER_TEMPLATE
+from footnote.agent.prompts import (
+    LAST_REPLY,
+    NUDGE_LENGTH,
+    NUDGE_NO_TOOL,
+    REPLIES_LEFT,
+    RETRY_TEMPLATE,
+    SYSTEM_PROMPT,
+    TOOLS,
+    USER_TEMPLATE,
+)
 from footnote.agent.tools import cap
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS, MAX_CALLS, PRICES, call_max_cost
@@ -42,7 +52,22 @@ CONFIG: dict[str, Any] = {
     "version": VERSION,
     "limits": asdict(LIMITS["agent"]),
     "max_calls": MAX_CALLS["agent"],
-    "prompt": {"system": SYSTEM_PROMPT, "user": USER_TEMPLATE},
+    "prompt": {
+        "system": SYSTEM_PROMPT,
+        "user": USER_TEMPLATE,
+        "nudge_length": NUDGE_LENGTH,
+        "nudge_no_tool": NUDGE_NO_TOOL,
+        "verification_retry": RETRY_TEMPLATE,
+        "replies_left": REPLIES_LEFT,
+        "last_reply": LAST_REPLY,
+    },
+    "tool_limits": {
+        "read_page_max_tokens": tool_limits.READ_PAGE_MAX_TOKENS,
+        "default_k": tool_limits.DEFAULT_K,
+        "max_k": tool_limits.MAX_K,
+        "summary_chars": tool_limits.SUMMARY_CHARS,
+        "trimming": "oldest tool results are replaced by their summaries until the call fits",
+    },
     "tools": TOOLS,
 }
 

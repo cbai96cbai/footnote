@@ -2,10 +2,12 @@ import json
 from decimal import Decimal
 from typing import Any
 
+import pytest
 from fakes import FakeIndex, ScriptedClient, failed, reply, text_reply, tool_call
 
 from footnote.agent.loop import run_agent
 from footnote.agent.system import CONFIG, SPEC
+from footnote.agent.tools import Toolbox
 from footnote.answers import AgentAnswer
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS, MAX_CALLS
@@ -193,3 +195,44 @@ def test_two_tool_calls_in_one_reply_both_answered() -> None:
     roles = [m.get("tool_call_id") for m in client.calls[1] if m["role"] == "tool"]
     assert roles == ["a", "b"] and p.usage.input_tokens == 200
     assert sum(s.usage.input_tokens for s in p.trace) == 200
+
+
+def test_config_hash_covers_all_model_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    from footnote.agent import prompts
+    from footnote.systems import hash_config
+
+    base = hash_config(CONFIG)
+    for name in ("RETRY_TEMPLATE", "NUDGE_LENGTH", "NUDGE_NO_TOOL", "REPLIES_LEFT"):
+        assert getattr(prompts, name) in json.dumps(CONFIG)
+    changed = {**CONFIG, "prompt": {**CONFIG["prompt"], "verification_retry": "other"}}
+    assert hash_config(changed) != base
+
+
+def test_failure_while_handling_a_reply_returns_error_with_usage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def boom(self: Toolbox, name: str, args: dict[str, Any]) -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(Toolbox, "run", boom)
+    p, client = run([search("a"), search("b")])
+    assert p.status == "error" and len(client.calls) == 1
+    assert p.usage.input_tokens == 100 and "boom" in p.trace[-1].summary
+
+
+def test_declined_answers_carry_no_citations() -> None:
+    with_cites = {**GOOD, "declined": True, "decline_reason": "no"}
+    p, _ = run([submit(with_cites)])
+    assert p.status == "declined" and p.answer is not None and p.answer.citations == []
+    assert p.answer.decline_reason == "no"
+    p, _ = run([submit(BAD), submit(BAD, "s2")])
+    assert p.answer is not None and p.answer.citations == []
+
+
+def test_budget_stated_in_prompt_and_each_tool_result() -> None:
+    p, client = run([search("a"), search("b"), submit(GOOD)])
+    assert "at most 8 replies" in client.calls[0][0]["content"]
+    assert client.calls[1][-1]["content"].endswith("[replies left: 7]")
+    assert client.calls[2][-1]["content"].endswith("[replies left: 6]")
+    p, client = run([search(f"a{i}") for i in range(7)] + [submit(GOOD)])
+    assert "last reply" in client.calls[7][-1]["content"]

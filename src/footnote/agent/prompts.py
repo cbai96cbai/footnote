@@ -22,14 +22,29 @@ Rules for the answer you submit:
 - Use calculate for every piece of arithmetic; never compute in your head. Write the figures from
   the filing into the expression.
 - Every number in your answer must come from a cited quote or a calculation on cited quotes.
+- Arithmetic constants: for an average of two figures use (a+b)/2; for a percentage use a/b*100;
+  never use 0.5 or other decimals as constants. Only whole numbers 1 to 12, 360, 365, 100, 1000,
+  1000000 and 1000000000 may appear in an expression without being quoted, and at least one number
+  in each expression must come from a cited quote.
+- Page numbers are page_index (0-based), not the page number printed on the page. Read table rows
+  across their columns carefully: match the row label to the right column heading and period.
 - Set declined to true, with a decline_reason, only when the filing cannot support an answer.
 - Your answer is checked against the filing. If the check finds problems you will be told once and
-  may submit again. You have a small, fixed number of tool calls, so be economical."""
+  may submit again; searching again first is allowed.
+- Budget: you get at most 8 replies in total, and the submission and any retry count among them.
+  Several tool calls in one reply cost one reply. Each tool result tells you how many replies are
+  left. Submit before they run out; an unsubmitted question counts as declined."""
 
 USER_TEMPLATE = "The question is about this filing: {doc_name} ({company}).\n\nQuestion: {question}"
 
 NUDGE_LENGTH = "Your last reply was cut off. Reply again, briefly, with one tool call."
 NUDGE_NO_TOOL = "Reply with a tool call. When you are ready, call submit_answer."
+RETRY_TEMPLATE = (
+    "Verification found problems: {problems}. Fix them and call submit_answer again, once. "
+    "You may search or read again first if you need to."
+)
+REPLIES_LEFT = "[replies left: {n}]"
+LAST_REPLY = "[replies left: 1. This is your last reply: call submit_answer now.]"
 
 
 def _tool(name: str, description: str, properties: dict[str, Any], required: list[str]) -> Any:

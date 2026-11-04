@@ -7,8 +7,11 @@ from typing import Any, Literal
 from pydantic import ValidationError
 
 from footnote.agent.prompts import (
+    LAST_REPLY,
     NUDGE_LENGTH,
     NUDGE_NO_TOOL,
+    REPLIES_LEFT,
+    RETRY_TEMPLATE,
     SYSTEM_PROMPT,
     TOOLS,
     USER_TEMPLATE,
@@ -77,6 +80,8 @@ class _Agent:
         verify_ok: bool | None = None,
         problems: list[str] | None = None,
     ) -> Prediction:
+        if status == "declined" and answer is not None:
+            answer = answer.model_copy(update={"citations": []})  # never checked, never shown
         return Prediction(
             question_id=self.q.id,
             system=FAMILY,
@@ -139,7 +144,10 @@ class _Agent:
                 return self._error(f"call not made: {type(exc).__name__}: {exc}")
             self.calls += 1
             self.usage = _add(self.usage, res.usage)
-            done = self._handle(res)
+            try:
+                done = self._handle(res)
+            except Exception as exc:  # the charge is already in self.usage
+                return self._error(f"failed handling a reply: {type(exc).__name__}: {exc}")
             if done is not None:
                 return done
 
@@ -155,7 +163,7 @@ class _Agent:
                 self.messages.append(
                     {"role": "assistant", "content": res.message.get("content") or ""}
                 )
-            self.messages.append({"role": "user", "content": nudge})
+            self.messages.append({"role": "user", "content": f"{nudge} {self._left()}"})
             return None
         self.messages.append(res.message)
         final: Prediction | None = None
@@ -165,7 +173,13 @@ class _Agent:
                 self._reply(call, "ignored: the answer was already submitted", usage)
             else:
                 final = self._tool_call(call, usage)
+        if final is None and self.messages[-1].get("role") == "tool":
+            self.messages[-1]["content"] += "\n" + self._left()
         return final
+
+    def _left(self) -> str:
+        n = MAX_CALLS["agent"] - self.calls
+        return LAST_REPLY if n == 1 else REPLIES_LEFT.format(n=n)
 
     def _reply(self, call: dict[str, Any], content: str, usage: Usage) -> None:
         fn = call.get("function", {})
@@ -248,11 +262,7 @@ class _Agent:
         if self.retried:
             return self._result("declined", _declined("; ".join(problems)), False, problems)
         self.retried = True
-        self.messages[-1]["content"] = (
-            "Verification found problems: "
-            + "; ".join(problems)
-            + ". Fix them and call submit_answer again, once."
-        )
+        self.messages[-1]["content"] = RETRY_TEMPLATE.format(problems="; ".join(problems))
         return None
 
 
