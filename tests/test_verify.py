@@ -150,3 +150,12 @@ def test_quote_longer_than_400_characters_fails() -> None:
     assert not ok and any("too long" in p for p in problems)
     ok, _ = check("Sales 1,577.", [page[:400]], page)
     assert ok
+
+
+def test_oversized_or_deeply_nested_expressions_are_rejected_not_crashed() -> None:
+    for bad in ("-" * 5000 + "1", "1" + "+1" * 20000, "(" * 150 + "1" + ")" * 150):
+        with pytest.raises(ValueError):
+            evaluate_expression(bad)
+    huge = Calc("-" * 5000 + "1", [Decimal(1)], Decimal(1))
+    ok, problems = check("It is 1.", [], "x", calcs=[huge])
+    assert not ok and any("calculation rejected" in p for p in problems)

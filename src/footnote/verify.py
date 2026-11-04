@@ -13,7 +13,7 @@ word may match a quoted number times 1e3, 1e6 or 1e9; signs are not compared (an
 import ast
 import re
 from dataclasses import dataclass
-from decimal import Decimal, DivisionByZero, InvalidOperation
+from decimal import Decimal, DivisionByZero, InvalidOperation, Overflow
 
 from footnote.answers import AgentAnswer, FinalValue
 from footnote.corpus.normalize import normalize_text
@@ -24,6 +24,7 @@ _MAGNITUDES = (Decimal(1), Decimal("1e3"), Decimal("1e6"), Decimal("1e9"))
 _FINAL_MAGNITUDES = tuple(Decimal(10) ** e for e in range(-9, 10, 3))
 MAX_QUOTE_CHARS = 400  # the site's excerpt cap; a longer quote could "support" a whole page
 _MAX_POWER = 10
+_MAX_EXPRESSION_CHARS = 200
 
 
 @dataclass(frozen=True)
@@ -80,11 +81,21 @@ def _literals(node: ast.AST, out: list[Decimal]) -> Decimal:
 def evaluate_expression(expression: str) -> Calc:
     """Evaluate arithmetic safely; operands are the numeric literals in order of appearance."""
     text = expression.replace("×", "*").replace("÷", "/").replace("−", "-").replace(",", "")
+    if len(text) > _MAX_EXPRESSION_CHARS:
+        raise ValueError(f"expression longer than {_MAX_EXPRESSION_CHARS} characters")
     try:
         tree = ast.parse(text.strip(), mode="eval")
         operands: list[Decimal] = []
         result = _literals(tree.body, operands)
-    except (SyntaxError, DivisionByZero, InvalidOperation, ZeroDivisionError) as exc:
+    except (
+        SyntaxError,
+        RecursionError,
+        MemoryError,
+        Overflow,
+        DivisionByZero,
+        InvalidOperation,
+        ZeroDivisionError,
+    ) as exc:
         raise ValueError(f"cannot evaluate {expression!r}: {exc}") from exc
     if not operands:
         raise ValueError(f"no numbers in {expression!r}")
@@ -168,6 +179,9 @@ def verify_answer(
 ) -> tuple[bool, list[str]]:
     problems: list[str] = []
     cited: list[ParsedNumber] = []
+    problems.extend(
+        f"calculation rejected: {c.expression[:60]!r}" for c in calcs if not _calc_is_sound(c)
+    )
     for c in answer.citations:
         text = pages.get(c.page_index)
         if len(c.quote) > MAX_QUOTE_CHARS:
