@@ -11,6 +11,7 @@ from footnote.budget.limits import LIMITS, MAX_CALLS, PRICES, CallLimits, call_m
 from footnote.corpus.normalize import DISPLAY_RULE
 from footnote.llm.client import CallFailed, LLMClient, Usage
 from footnote.prediction import NO_USAGE, RATE_LIMITED, Prediction, Step, add_usage
+from footnote.verify import VERIFY_VERSION
 
 VERSION = "2"
 
@@ -50,6 +51,7 @@ def family_config(family: str, limits_key: str, user_template: str, packing: str
         "prompt": {"system": INSTRUCTIONS, "user": user_template},
         "packing": packing,
         "display": DISPLAY_RULE,
+        "verify_version": VERIFY_VERSION,
     }
 
 

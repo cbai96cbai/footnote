@@ -203,3 +203,13 @@ def test_baselines_share_the_quote_rules_and_a_new_version() -> None:
         assert spec.config["prompt"]["system"] == common.INSTRUCTIONS
         old = {**spec.config, "prompt": {**spec.config["prompt"], "system": "old"}}
         assert hash_config(old) != hash_config(spec.config)
+
+
+def test_the_check_version_is_in_each_baseline_config_and_changes_its_hash() -> None:
+    from footnote.baselines import plain_retrieval
+    from footnote.systems import hash_config
+    from footnote.verify import VERIFY_VERSION
+
+    for spec in (no_docs.SPEC, plain_retrieval.SPEC, long_context.SPEC):
+        assert spec.config["verify_version"] == VERIFY_VERSION
+        assert hash_config({**spec.config, "verify_version": "3"}) != hash_config(spec.config)

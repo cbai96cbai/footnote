@@ -17,7 +17,14 @@ from footnote.agent.prompts import (
     TOOLS,
     USER_TEMPLATE,
 )
-from footnote.agent.submit import FORCE, FORCE_WHEN_LEFT, MAX_PROBLEM_TOKENS, RESEARCH_INPUT_TARGET
+from footnote.agent.submit import (
+    FORCE,
+    FORCE_WHEN_LEFT,
+    IGNORED_AFTER,
+    IGNORED_EXTRA,
+    MAX_PROBLEM_TOKENS,
+    RESEARCH_INPUT_TARGET,
+)
 from footnote.agent.tools import cap
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS, MAX_CALLS, PRICES, call_max_cost
@@ -27,6 +34,7 @@ from footnote.llm.client import LLMClient
 from footnote.prediction import NO_USAGE, Prediction, Step
 from footnote.retrieval.index import DocIndex, retrieval_settings
 from footnote.systems import register_system
+from footnote.verify import VERIFY_VERSION
 
 
 def run(q: AgentQuestion, client: LLMClient) -> Prediction:
@@ -64,6 +72,8 @@ CONFIG: dict[str, Any] = {
         "replies_left": REPLIES_LEFT,
         "last_reply": LAST_REPLY,
         "submit_next": SUBMIT_NEXT,
+        "ignored_extra_submission": IGNORED_EXTRA,
+        "ignored_after_submission": IGNORED_AFTER,
     },
     "submit_forced_when_left": FORCE_WHEN_LEFT,
     "research_input_target_tokens": RESEARCH_INPUT_TARGET,
@@ -76,6 +86,7 @@ CONFIG: dict[str, Any] = {
         "trimming": "oldest tool results are replaced by their summaries until the call fits",
     },
     "tools": TOOLS,
+    "verify_version": VERIFY_VERSION,
     "display": DISPLAY_RULE,
     "retrieval": retrieval_settings(),
 }

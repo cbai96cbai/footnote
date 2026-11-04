@@ -31,6 +31,7 @@ from footnote.answers import AgentAnswer, FinalValue
 from footnote.corpus.normalize import map_hyphen_marks, normalize_text
 from footnote.numbers import ParsedNumber, is_valid_rounding, parse_numbers
 
+VERIFY_VERSION = "2"  # changes whenever a rule or a problem message of the check changes
 _MAGNITUDES = (Decimal(1), Decimal("1e3"), Decimal("1e6"), Decimal("1e9"))
 # usd, count and other values are stated in the question's requested scale: any power of 1000
 # constants a calculation may use without a citation: averages, annualizing, day counts, units

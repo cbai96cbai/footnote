@@ -248,3 +248,18 @@ def test_config_hash_covers_the_new_texts_the_search_width_and_the_forcing_rule(
         {**CONFIG, "version": "1"},
     ):
         assert hash_config(changed) != base
+
+
+def test_every_model_visible_constant_and_the_check_version_change_the_agent_hash() -> None:
+    from footnote.agent import submit
+    from footnote.agent.system import CONFIG
+    from footnote.systems import hash_config
+    from footnote.verify import VERIFY_VERSION
+
+    base = hash_config(CONFIG)
+    texts = list(CONFIG["prompt"].values())
+    assert submit.IGNORED_EXTRA in texts and submit.IGNORED_AFTER in texts
+    assert CONFIG["verify_version"] == VERIFY_VERSION == "2"
+    for key in ("ignored_extra_submission", "ignored_after_submission"):
+        assert hash_config({**CONFIG, "prompt": {**CONFIG["prompt"], key: "other"}}) != base
+    assert hash_config({**CONFIG, "verify_version": "3"}) != base

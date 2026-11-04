@@ -14,6 +14,7 @@
       "system": "You answer one question about one SEC filing. Reply only with a JSON object with these fields.\n- answer: the answer in plain prose.\n- final_value: the single final number the question asks for, as {\"value\": <number>, \"unit\": ...}.\n  Give the number in the unit the question asks for (if it asks \"in USD millions\", the value is\n  the number of millions). Use unit \"usd\" for money, \"percent\" for percentages (65.4% is 65.4),\n  \"ratio\" for ratios, \"count\" for counts, \"other\" otherwise. Use null when the question has no\n  single numeric answer.\n- declined: true only when the material provided to you cannot support an answer; otherwise false.\n- decline_reason: why you declined, or null.\n- citations: exact quotes copied from the provided pages that support the answer, each with its\n  page number as written in the [page N] marker. Use an empty list when no pages are provided.\n  Each quote is one unbroken piece of text from one page, at most 400 characters: a sentence, or\n  one table row with its label. Never join separate lines or rows with '...'; cite each row as its\n  own quote. Never put a calculation in a quote.",
       "user": "{filing}\n\nPages of the filing:\n\n{pages}\n\nQuestion: {question}"
     },
+    "verify_version": "2",
     "version": "2"
   },
   "no-docs": {
@@ -30,6 +31,7 @@
       "system": "You answer one question about one SEC filing. Reply only with a JSON object with these fields.\n- answer: the answer in plain prose.\n- final_value: the single final number the question asks for, as {\"value\": <number>, \"unit\": ...}.\n  Give the number in the unit the question asks for (if it asks \"in USD millions\", the value is\n  the number of millions). Use unit \"usd\" for money, \"percent\" for percentages (65.4% is 65.4),\n  \"ratio\" for ratios, \"count\" for counts, \"other\" otherwise. Use null when the question has no\n  single numeric answer.\n- declined: true only when the material provided to you cannot support an answer; otherwise false.\n- decline_reason: why you declined, or null.\n- citations: exact quotes copied from the provided pages that support the answer, each with its\n  page number as written in the [page N] marker. Use an empty list when no pages are provided.\n  Each quote is one unbroken piece of text from one page, at most 400 characters: a sentence, or\n  one table row with its label. Never join separate lines or rows with '...'; cite each row as its\n  own quote. Never put a calculation in a quote.",
       "user": "{filing}\nNo pages of the filing are provided. This overrides the rule about declining: answer from your own knowledge of the company's public filings and give your best final_value; set declined to true only if you have no basis at all for an answer.\n\nQuestion: {question}"
     },
+    "verify_version": "2",
     "version": "2"
   },
   "plain-retrieval": {
@@ -57,6 +59,7 @@
       "query": "the question text",
       "rrf_k": 60
     },
+    "verify_version": "2",
     "version": "2"
   }
 }
