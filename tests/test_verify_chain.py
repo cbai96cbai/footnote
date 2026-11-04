@@ -150,6 +150,19 @@ def test_a_value_that_is_not_a_correct_rounding_stays_rejected_with_chaining() -
     assert not fv_check("18.48", "ratio", [page], calcs[1:], page=page)[0]
 
 
+def test_the_recorded_aes_answer_with_its_real_figures() -> None:
+    quotes = ["Total cost of sales (10,069) (8,430) (6,967)", "Total $ 1,055 $ 604"]
+    page = " ... ".join(quotes)
+    calcs = chain("(1055+604)/2", "10069/829.5")
+    assert calcs[0].result == Decimal("829.5")
+    assert calcs[1].result == Decimal("12.13863773357444243520192887")
+    assert not fv_check("12.138637733574441", "other", quotes, calcs, page=page)[0]
+    assert fv_check("12.138637733574442", "other", quotes, calcs, page=page)[0]
+    assert fv_check("12.14", "other", quotes, calcs, page=page)[0]
+    for value in ("12.138637733574442", "12.14"):
+        assert not fv_check(value, "other", quotes, calcs[1:], page=page)[0]
+
+
 def test_a_second_calculation_with_only_an_earlier_result_and_constants() -> None:
     calcs = chain("(6854+7367)/2", "7110.5*12")
     assert chain_check("85326", "usd", calcs)[0]
