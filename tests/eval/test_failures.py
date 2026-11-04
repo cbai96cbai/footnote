@@ -56,7 +56,6 @@ def test_failure_type_rules() -> None:
 
 def test_labeling_sample_stratified() -> None:
     verdicts: dict[str, Verdict] = {}
-    preds: dict[str, Prediction] = {}
     for i in range(40):
         qid = f"c{i}"
         verdicts[qid] = verdict("correct", qid=qid)
