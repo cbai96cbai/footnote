@@ -33,7 +33,7 @@ _NUMBER = re.compile(
     (?<![A-Za-z0-9_])(?<!\d\.)
     (?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)
     (?:\s*(?P<scale>(?i:thousand|million|billion)|(?-i:bn|mn|mm|b|B|M|k|K)))?
-    (?:(?P<pct>\s*%|\s+percent\b)|(?P<x>x\b))?
+    (?:(?P<pct>\s*%|\s+percent\b)|(?(scale)(?!)|(?P<x>x\b)))?
     (?(open)\s*\)|)
     (?![A-Za-z0-9_])
     (?!-[A-Za-z])
