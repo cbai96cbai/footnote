@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from footnote.corpus.parse import Page
 from footnote.llm.tokens import count_text_tokens
 
+# bump when the splitting rules or the tokenizer change, so cached embeddings are rebuilt
+CHUNKER_VERSION = "1"
 MAX_TOKENS = 350
 OVERLAP_TOKENS = 50
 _SLICE_CHARS = 200  # fallback for a single "word" longer than the limit (no whitespace to break on)

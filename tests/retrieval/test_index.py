@@ -1,6 +1,8 @@
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -8,6 +10,7 @@ from numpy.typing import NDArray
 
 from footnote.corpus import fetch
 from footnote.retrieval import index as index_mod
+from footnote.retrieval.chunk import Passage
 from footnote.retrieval.index import DocIndex, embedding_cache_key, rrf
 
 
@@ -90,3 +93,63 @@ def test_embedding_cache_key_changes_with_settings() -> None:
         assert embedding_cache_key("d", 350, 50, "m", "1") != base
     finally:
         index_mod.PARSER_VERSION = original
+
+
+def _meta(doc: str = "SAMPLE") -> Path:
+    from footnote.paths import cache_dir
+
+    return cache_dir() / "embeddings" / f"{doc}.json"
+
+
+def _make_legacy(ids: list[str] | None = None) -> None:
+    meta = _meta()
+    info = json.loads(meta.read_text())
+    old_key = index_mod._legacy_key(
+        json.loads(Path(fetch.MANIFEST_PATH).read_text())["SAMPLE"], 350, 50, "fake", "0"
+    )
+    meta.write_text(json.dumps({"key": old_key, "ids": ids or info["ids"]}))
+
+
+def test_chunker_version_change_rebuilds(corpus: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    emb = FakeEmbedder()
+    DocIndex.for_doc("SAMPLE", emb)
+    monkeypatch.setattr(index_mod, "CHUNKER_VERSION", "2")
+    DocIndex.for_doc("SAMPLE", emb)
+    assert emb.calls == 2
+    DocIndex.for_doc("SAMPLE", emb)
+    assert emb.calls == 2
+
+
+def test_passage_text_change_with_same_ids_rebuilds(
+    corpus: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    emb = FakeEmbedder()
+    DocIndex.for_doc("SAMPLE", emb)
+    real = index_mod.chunk_pages
+
+    def altered(*args: Any, **kwargs: Any) -> list[Passage]:
+        return [replace(p, text=p.text + " extra") for p in real(*args, **kwargs)]
+
+    monkeypatch.setattr(index_mod, "chunk_pages", altered)
+    DocIndex.for_doc("SAMPLE", emb)
+    assert emb.calls == 2
+
+
+def test_legacy_cache_accepted_and_upgraded(corpus: None) -> None:
+    emb = FakeEmbedder()
+    DocIndex.for_doc("SAMPLE", emb)
+    _make_legacy()
+    DocIndex.for_doc("SAMPLE", emb)
+    assert emb.calls == 1  # accepted, not rebuilt
+    upgraded = json.loads(_meta().read_text())
+    assert upgraded["chunker_version"] == "1" and upgraded["text_digest"]
+    DocIndex.for_doc("SAMPLE", emb)
+    assert emb.calls == 1
+
+
+def test_legacy_cache_with_different_ids_rebuilds(corpus: None) -> None:
+    emb = FakeEmbedder()
+    DocIndex.for_doc("SAMPLE", emb)
+    _make_legacy(ids=["other"])
+    DocIndex.for_doc("SAMPLE", emb)
+    assert emb.calls == 2
