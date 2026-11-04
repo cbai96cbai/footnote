@@ -13,6 +13,7 @@ from footnote.budget.tally import Tally
 from footnote.config import Settings
 from footnote.eval.gold import Gold
 from footnote.eval.grade_llm import GraderOutput
+from footnote.eval.identity import RunIdentityMismatch
 from footnote.eval.registry import TestRunRefused
 from footnote.eval.run import run_eval
 from footnote.llm.client import CallFailed, ChatResult, Usage
@@ -230,7 +231,7 @@ def test_incomplete_test_run_stays_started_and_config_change_refused(tmp_path: P
     reg = json.loads((tmp_path / "results" / "test_runs.json").read_text())
     assert reg["fake"]["state"] == "started"
     register_system("fake", lambda q, c: prediction(q), MAX_Q, {"version": "1", "prompt": "new"})
-    with pytest.raises(TestRunRefused):
+    with pytest.raises(RunIdentityMismatch, match="config_hash"):
         run_eval("fake", "test", "t1", **kw)
 
 

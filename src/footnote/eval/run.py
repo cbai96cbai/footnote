@@ -15,6 +15,7 @@ from footnote.budget.tally import Tally
 from footnote.config import Settings
 from footnote.eval.gold import Gold, load_gold
 from footnote.eval.grade import NO_USAGE, Verdict, grade
+from footnote.eval.identity import verify_identity, write_identity
 from footnote.eval.records import (
     append_prediction,
     append_verdict,
@@ -23,7 +24,7 @@ from footnote.eval.records import (
 )
 from footnote.eval.registry import complete_test_run, start_test_run
 from footnote.eval.split import SplitName, load_split
-from footnote.eval.summary import build_summary, is_grader_error
+from footnote.eval.summary import build_summary, is_grader_error, rubric_hash
 from footnote.eval.verify_pass import PagesLoader, load_page_texts, with_verification
 from footnote.llm.client import LLMClient, Usage
 from footnote.prediction import Prediction, Step
@@ -117,13 +118,22 @@ def run_eval(
 ) -> dict[str, Any]:
     spec = get_system(family)
     selected = _selected(questions, split_ids, split)
+    run_dir = results_root / run_id
+    identity = {
+        "family": spec.family,
+        "version": spec.version,
+        "config_hash": spec.config_hash,
+        "split": split,
+        "rubric_hash": rubric_hash(),
+    }
+    verify_identity(run_dir, identity)  # before the registry: a refused resume spends nothing
     rerun_reason = reason if rerun_test else None
     if split == "test":
         rerun_reason = start_test_run(
             results_root, family, spec.config_hash, run_id, rerun=rerun_test, reason=reason
         )
+    write_identity(run_dir, identity)
     gold = gold if gold is not None else load_gold()
-    run_dir = results_root / run_id
     preds, verdicts = read_predictions(run_dir), read_verdicts(run_dir)
     remaining = [q for q in selected if q.id not in verdicts or is_grader_error(verdicts[q.id])]
     grader_price = client.price_for(settings.grader_deployment)
@@ -144,7 +154,7 @@ def run_eval(
         append_verdict(run_dir, verdicts[q.id])
     if remaining:
         tally.settle(run_id, spent)  # an earlier crashed admission of this run stays at its maximum
-    summary = build_summary(spec, split, selected, preds, verdicts)
+    summary = build_summary(identity, selected, preds, verdicts)
     summary["tally_admitted"] = str(admitted)
     summary["tally_settled"] = str(spent)
     if rerun_reason:

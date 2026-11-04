@@ -59,6 +59,8 @@ def test_input_count_includes_tool_calls_and_results() -> None:
         count_text_tokens("q")
         + count_text_tokens('{"page": 12345}')
         + count_text_tokens("Total revenue was 9,999 million")
+        + 2 * count_text_tokens("1")  # call id and tool_call_id
+        + count_text_tokens("read_page")
         + 3 * 4
         + 300
     )
@@ -68,3 +70,30 @@ def test_input_count_includes_tool_calls_and_results() -> None:
 def test_input_count_handles_content_parts() -> None:
     msgs = [{"role": "user", "content": [{"type": "text", "text": "hello world"}]}]
     assert count_input_tokens(msgs, None, None) == 2 + 4 + 300
+
+
+def test_tool_names_and_ids_are_counted() -> None:
+    call_id = "call_" + "abcdef0123456789" * 8
+    long_name = "read_page_" + "x" * 200
+    history = [
+        {"role": "user", "content": "q"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": call_id,
+                    "type": "function",
+                    "function": {"name": long_name, "arguments": "{}"},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": call_id, "name": long_name, "content": "r"},
+    ]
+    bare = [
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": None, "tool_calls": [{"function": {"arguments": "{}"}}]},
+        {"role": "tool", "content": "r"},
+    ]
+    extra = count_input_tokens(history, None, None) - count_input_tokens(bare, None, None)
+    assert extra >= 2 * count_text_tokens(call_id) + 2 * count_text_tokens(long_name)

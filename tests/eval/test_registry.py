@@ -37,3 +37,36 @@ def test_started_run_with_changed_config_refused(tmp_path: Path) -> None:
         start_test_run(tmp_path, "agent", "h2", "r1")
     start_test_run(tmp_path, "agent", "h2", "r1", rerun=True, reason="prompt fixed")
     assert json.loads((tmp_path / "test_runs.json").read_text())["agent"]["config_hash"] == "h2"
+
+
+def test_two_starts_serialize_on_one_file(tmp_path: Path) -> None:
+    import threading
+    import time
+
+    from footnote.eval import registry
+
+    real_load = registry._load
+
+    def slow_load(root: Path) -> dict:  # widens the read-to-write window
+        reg = real_load(root)
+        time.sleep(0.2)
+        return reg
+
+    results: dict[str, str] = {}
+
+    def start(run_id: str) -> None:
+        try:
+            registry.start_test_run(tmp_path, "agent", "h", run_id)
+            results[run_id] = "ok"
+        except TestRunRefused:
+            results[run_id] = "refused"
+
+    registry._load = slow_load  # type: ignore[assignment]
+    try:
+        ts = [threading.Thread(target=start, args=(r,)) for r in ("r1", "r2")]
+        [t.start() for t in ts]
+        [t.join() for t in ts]
+    finally:
+        registry._load = real_load  # type: ignore[assignment]
+    assert sorted(results.values()) == ["ok", "refused"]
+    assert not list(tmp_path.glob("*.tmp"))

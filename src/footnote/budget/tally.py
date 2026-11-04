@@ -91,3 +91,15 @@ class Tally:
             if not self._state(fh)[1].get(run_id):
                 raise ValueError(f"settle for run {run_id} without an open admission")
             self._append(fh, "settle", run_id, actual)
+
+
+def settle_if_complete(tally: Tally, run_id: str, actual: Decimal, completed: bool) -> bool:
+    """Settle only after a clean finish with every call's usage accumulated.
+
+    Any other exit (an interrupt, an error escaping after a request may have been sent without
+    usage coming back) leaves the admission open, so its maximum stays charged.
+    """
+    if not completed:
+        return False
+    tally.settle(run_id, actual)
+    return True

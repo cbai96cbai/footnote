@@ -10,7 +10,6 @@ from footnote.benchmark import AgentQuestion
 from footnote.eval.grade import Verdict
 from footnote.eval.stats import cluster_bootstrap
 from footnote.prediction import Prediction
-from footnote.systems import SystemSpec
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RUBRIC = Path(__file__).with_name("rubric.md")
@@ -48,8 +47,7 @@ def outcomes_by_company(
 
 
 def build_summary(
-    spec: SystemSpec,
-    split: str,
+    identity: dict[str, str],
     questions: list[AgentQuestion],
     preds: dict[str, Prediction],
     verdicts: dict[str, Verdict],
@@ -69,10 +67,10 @@ def build_summary(
         _, lo, hi = cluster_bootstrap(outcomes_by_company(questions, verdicts))
         ci = [lo, hi]
     return {
-        "system": spec.family,
-        "version": spec.version,
-        "config_hash": spec.config_hash,
-        "split": split,
+        "system": identity["family"],
+        "version": identity["version"],
+        "config_hash": identity["config_hash"],
+        "split": identity["split"],
         "n": n,
         "correct": correct,
         "n_graded": n_graded,
@@ -89,6 +87,6 @@ def build_summary(
         "verified_rate": (sum(bool(p.verify_ok) for p in verified) / len(verified))
         if verified
         else None,
-        "rubric_hash": rubric_hash(),
+        "rubric_hash": identity["rubric_hash"],
         "git_sha": git_sha(),
     }

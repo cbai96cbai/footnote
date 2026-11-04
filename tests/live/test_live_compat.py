@@ -9,7 +9,7 @@ import pytest
 from pydantic import BaseModel
 
 from footnote.budget.limits import LIMITS, PRICES, CallLimits, call_max_cost
-from footnote.budget.tally import Tally
+from footnote.budget.tally import Tally, settle_if_complete
 from footnote.config import Settings
 from footnote.llm.client import CallFailed, ChatResult, LLMClient
 from footnote.llm.tokens import count_input_tokens
@@ -62,6 +62,7 @@ def test_live_compat() -> None:
     tally = Tally()
     tally.admit("live-compat", maximum)
     spent = Decimal(0)
+    completed = False
     try:
         client = LLMClient(s)
         _chat = client.chat
@@ -110,5 +111,7 @@ def test_live_compat() -> None:
             limits=short,
         )
         assert cut.finish_reason == "length"
+        completed = True
     finally:
-        tally.settle("live-compat", spent if spent else maximum)
+        # an interrupt or escaping error may hide a sent request's cost: stay at the maximum
+        settle_if_complete(tally, "live-compat", spent, completed)

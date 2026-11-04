@@ -67,3 +67,14 @@ def test_tally_locked_across_instances(tmp_path: Path) -> None:
         th.join()
     assert results.count(True) == 8  # 8 x 3 = 24 <= 25 < 27
     assert Tally(path).total() == Decimal("24")
+
+
+def test_settle_if_complete_leaves_admission_open_unless_clean(tmp_path: Path) -> None:
+    from footnote.budget.tally import settle_if_complete
+
+    tally = Tally(tmp_path / "s.jsonl", Decimal("10"))
+    tally.admit("live", Decimal("3"))
+    assert settle_if_complete(tally, "live", Decimal("1"), completed=False) is False
+    assert tally.total() == Decimal("3")  # interrupted: the maximum stays charged
+    assert settle_if_complete(tally, "live", Decimal("1"), completed=True) is True
+    assert tally.total() == Decimal("1")

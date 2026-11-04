@@ -37,10 +37,18 @@ def _content_tokens(content: Any) -> int:
     )
 
 
+def _text_tokens(value: Any) -> int:
+    return count_text_tokens(value) if isinstance(value, str) else 0
+
+
 def _message_tokens(message: Mapping[str, Any]) -> int:
     total = PER_MESSAGE + _content_tokens(message.get("content"))
+    for key in ("name", "tool_call_id"):
+        total += _text_tokens(message.get(key))
     for call in message.get("tool_calls") or []:
-        total += count_text_tokens(call.get("function", {}).get("arguments", ""))
+        fn = call.get("function", {})
+        total += _text_tokens(call.get("id")) + _text_tokens(fn.get("name"))
+        total += _text_tokens(fn.get("arguments"))
     return total
 
 
