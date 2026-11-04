@@ -3,8 +3,9 @@
 1. Every quote the answer cites appears word for word on the cited page of the filing, and an
    answered (not declined) question cites at least one quote.
 2. The answer's structured final value is a correct rounding of a number written in a cited quote,
-   or of a logged calculation whose numbers come from cited quotes (plus small fixed constants such
-   as 2, 12, 365 or 100, with at least one cited number in every calculation). Units:
+   or of a logged calculation whose numbers come from cited quotes or from the exact results of
+   earlier such calculations (plus small fixed constants such as 2, 12, 365 or 100, with at least
+   one cited or earlier-result number in every calculation). Units:
    - usd, count and other: the value may be the quoted number times 1, 1,000, 1,000,000 or
      1,000,000,000 (tables rarely state their unit in the quoted line), either direction.
    - percent and ratio: the value must match the quoted number as written. A percent may also be a
@@ -66,17 +67,19 @@ def quote_in_page(quote: str, page_text: str) -> bool:
     return re.search(pattern, _squash(page_text)) is not None
 
 
-def _literals(node: ast.AST, out: list[Decimal]) -> Decimal:
+def _literals(node: ast.AST, source: str, out: list[Decimal]) -> Decimal:
     if isinstance(node, ast.Constant) and type(node.value) in (int, float):
-        value = Decimal(repr(node.value))
+        # a float literal is read from its own text: every digit the model copied is kept
+        text = ast.get_source_segment(source, node)
+        value = Decimal(node.value if type(node.value) is int else text or repr(node.value))
         out.append(value)
         return value
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
-        inner = _literals(node.operand, out)
+        inner = _literals(node.operand, source, out)
         return -inner if isinstance(node.op, ast.USub) else inner
     if isinstance(node, ast.BinOp):
-        left = _literals(node.left, out)
-        right = _literals(node.right, out)
+        left = _literals(node.left, source, out)
+        right = _literals(node.right, source, out)
         if isinstance(node.op, ast.Add):
             return left + right
         if isinstance(node.op, ast.Sub):
@@ -98,9 +101,10 @@ def evaluate_expression(expression: str) -> Calc:
     if len(text) > _MAX_EXPRESSION_CHARS:
         raise ValueError(f"expression longer than {_MAX_EXPRESSION_CHARS} characters")
     try:
-        tree = ast.parse(text.strip(), mode="eval")
+        text = text.strip()
+        tree = ast.parse(text, mode="eval")
         operands: list[Decimal] = []
-        result = _literals(tree.body, operands)
+        result = _literals(tree.body, text, operands)
     except (
         SyntaxError,
         RecursionError,
@@ -141,23 +145,26 @@ def _supported_by_value(
     return any(_rounds_to(shown, base * s) for s in magnitudes)
 
 
-def _operand_cited(op: Decimal, cited: list[ParsedNumber]) -> bool:
-    """An operand is a number from a cited quote or a unit constant; the question never counts."""
-    return op in _UNIT_CONSTANTS or _operand_in_quotes(op, cited)
-
-
 def _operand_in_quotes(op: Decimal, cited: list[ParsedNumber]) -> bool:
     return any(op in (b * s, -b * s) for n in cited for b in _bases(n) for s in _MAGNITUDES)
 
 
 def _calc_results(calcs: list[Calc], cited: list[ParsedNumber]) -> list[Decimal]:
-    return [
-        c.result
-        for c in calcs
-        if _calc_is_sound(c)
-        and all(_operand_cited(o, cited) for o in c.operands)
-        and any(_operand_in_quotes(o, cited) for o in c.operands)
-    ]
+    """Results of the traced calculations, in log order. A number is traced when it is in a cited
+    quote, is a unit constant, or equals (or negates) the exact result of an earlier traced one;
+    a calculation needs at least one operand that is not a constant."""
+    traced: list[Decimal] = []
+    for c in calcs:
+        if not _calc_is_sound(c):
+            continue
+        roots = [o for o in c.operands if _operand_in_quotes(o, cited) or _earlier(o, traced)]
+        if roots and all(o in _UNIT_CONSTANTS or o in roots for o in c.operands):
+            traced.append(c.result)
+    return traced
+
+
+def _earlier(op: Decimal, traced: list[Decimal]) -> bool:
+    return any(op in (r, -r) for r in traced)
 
 
 def _number_supported(
@@ -185,6 +192,14 @@ def _final_as_shown(fv: FinalValue) -> ParsedNumber:
     return ParsedNumber(fv.value, decimals, False, Decimal(1))
 
 
+def _not_found(quote: str, page_index: int, pages: dict[int, str]) -> str:
+    message = f"quote not found on page {page_index}: {quote[:80]!r}"
+    elsewhere = [n for n, t in sorted(pages.items()) if n != page_index and quote_in_page(quote, t)]
+    if elsewhere:
+        message += f"; this exact text is on page_index {', '.join(str(n) for n in elsewhere[:3])}"
+    return message
+
+
 def verify_answer(
     answer: AgentAnswer, pages: dict[int, str], question: str, calcs: list[Calc]
 ) -> tuple[bool, list[str]]:
@@ -200,7 +215,7 @@ def verify_answer(
         elif text is None:
             problems.append(f"cited page {c.page_index} is not in the filing")
         elif not quote_in_page(c.quote, text):
-            problems.append(f"quote not found on page {c.page_index}: {c.quote[:80]!r}")
+            problems.append(_not_found(c.quote, c.page_index, pages))
         else:
             cited.extend(parse_numbers(map_hyphen_marks(c.quote)))
     if not answer.declined:
