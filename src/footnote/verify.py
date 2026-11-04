@@ -22,7 +22,10 @@ from footnote.numbers import ParsedNumber, is_valid_rounding, parse_numbers, unr
 
 _MAGNITUDES = (Decimal(1), Decimal("1e3"), Decimal("1e6"), Decimal("1e9"))
 # final_value is stated in the question's requested unit: any power of 1000 either way
-_UNIT_CONSTANTS = (Decimal(100), Decimal(1000), Decimal("1e6"), Decimal("1e9"))
+# constants a calculation may use without a citation: averages, annualizing, day counts, units
+_UNIT_CONSTANTS = frozenset(
+    Decimal(n) for n in (*range(1, 13), 360, 365, 100, 1000, 1000000, 1000000000)
+)
 _FINAL_MAGNITUDES = tuple(Decimal(10) ** e for e in range(-9, 10, 3))
 MAX_QUOTE_CHARS = 400  # the site's excerpt cap; a longer quote could "support" a whole page
 _MAX_POWER = 10
@@ -141,8 +144,10 @@ def _in_question(shown: ParsedNumber, question: list[ParsedNumber]) -> bool:
 
 def _operand_cited(op: Decimal, cited: list[ParsedNumber]) -> bool:
     """An operand is a number from a cited quote or a unit constant; the question never counts."""
-    if op in _UNIT_CONSTANTS:
-        return True
+    return op in _UNIT_CONSTANTS or _operand_in_quotes(op, cited)
+
+
+def _operand_in_quotes(op: Decimal, cited: list[ParsedNumber]) -> bool:
     return any(op in (b * s, -b * s) for n in cited for b in _bases(n) for s in _MAGNITUDES)
 
 
@@ -150,7 +155,9 @@ def _calc_results(calcs: list[Calc], cited: list[ParsedNumber]) -> list[Decimal]
     return [
         c.result
         for c in calcs
-        if _calc_is_sound(c) and all(_operand_cited(o, cited) for o in c.operands)
+        if _calc_is_sound(c)
+        and all(_operand_cited(o, cited) for o in c.operands)
+        and any(_operand_in_quotes(o, cited) for o in c.operands)
     ]
 
 

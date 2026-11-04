@@ -193,3 +193,16 @@ def test_calculation_with_cited_operands_and_unit_constant() -> None:
     )
     assert ok, problems
     assert not check("Margin was 65.4%.", ["Gross profit 1,018"], page, calcs=[calc])[0]
+
+
+def test_calculation_constants_and_at_least_one_cited_operand() -> None:
+    page = "Net sales 1,577 and 1,018"
+    both = ["Net sales 1,577", "and 1,018"]
+    avg = evaluate_expression("(1577+1018)/2")
+    assert check("Average was 1,298.", both, page, calcs=[avg])[0]
+    half = evaluate_expression("1577/2")
+    assert check("Half was 789.", ["Net sales 1,577"], page, calcs=[half])[0]
+    only_constants = evaluate_expression("12*30")
+    assert not check("It is 360.", [], "x", calcs=[only_constants])[0]
+    year = evaluate_expression("2020+2020")
+    assert not check("It is 4,040.", [], "x", question="What happened in 2020?", calcs=[year])[0]
