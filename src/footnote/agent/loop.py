@@ -18,6 +18,7 @@ from footnote.agent.submit import (
     FORCE_WHEN_LEFT,
     IGNORED_AFTER,
     IGNORED_EXTRA,
+    SUBMISSION_RESERVE,
     SUBMIT,
     declined,
     judge,
@@ -104,8 +105,11 @@ class _Agent:
         return count_input_tokens(self.messages, TOOLS, None)
 
     def _fit(self) -> bool:
-        """Replace the oldest tool results by their summaries until the call fits its limit."""
+        """Replace the oldest tool results by their summaries until the call fits its limit.
+        Research leaves SUBMISSION_RESERVE tokens free; the submission phase may use them."""
         limit = LIMITS["agent"].max_input_tokens
+        if MAX_CALLS["agent"] - self.calls > FORCE_WHEN_LEFT:
+            limit -= SUBMISSION_RESERVE
         for m in self.messages:
             if self._size() <= limit:
                 break

@@ -6,8 +6,9 @@
    or of a logged calculation whose numbers come from cited quotes or from the exact results of
    earlier such calculations (plus small fixed constants such as 2, 12, 365 or 100, with at least
    one cited or earlier-result number in every calculation). Units:
-   - usd, count and other: the value may be the quoted number times 1, 1,000, 1,000,000 or
-     1,000,000,000 (tables rarely state their unit in the quoted line), either direction.
+   - usd, count and other: the value may be a quoted number or a calculation result scaled by a
+     power of 1,000 (thousands, millions, billions; tables rarely state their unit in the quoted
+     line), either direction.
    - percent and ratio: the value must match the quoted number as written. A percent may also be a
      calculation result times 100 (1018/1557 gives 65.4), never a quoted number times 100.
    - a quoted number written with a % sign supports only a percent value; a plain table cell such
@@ -192,12 +193,16 @@ def _final_as_shown(fv: FinalValue) -> ParsedNumber:
     return ParsedNumber(fv.value, decimals, False, Decimal(1))
 
 
+def _elsewhere(quote: str, page_index: int, pages: dict[int, str]) -> str:
+    found = [n for n, t in sorted(pages.items()) if n != page_index and quote_in_page(quote, t)]
+    if not found:
+        return ""
+    return f"; this exact text is on page_index {', '.join(str(n) for n in found[:3])}"
+
+
 def _not_found(quote: str, page_index: int, pages: dict[int, str]) -> str:
     message = f"quote not found on page {page_index}: {quote[:80]!r}"
-    elsewhere = [n for n, t in sorted(pages.items()) if n != page_index and quote_in_page(quote, t)]
-    if elsewhere:
-        message += f"; this exact text is on page_index {', '.join(str(n) for n in elsewhere[:3])}"
-    return message
+    return message + _elsewhere(quote, page_index, pages)
 
 
 def verify_answer(
@@ -213,7 +218,10 @@ def verify_answer(
         if len(c.quote) > MAX_QUOTE_CHARS:
             problems.append(f"quote too long ({len(c.quote)} > {MAX_QUOTE_CHARS} characters)")
         elif text is None:
-            problems.append(f"cited page {c.page_index} is not in the filing")
+            problems.append(
+                f"cited page {c.page_index} is not in the filing"
+                + _elsewhere(c.quote, c.page_index, pages)
+            )
         elif not quote_in_page(c.quote, text):
             problems.append(_not_found(c.quote, c.page_index, pages))
         else:

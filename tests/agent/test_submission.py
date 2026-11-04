@@ -2,10 +2,11 @@ import json
 from typing import Any
 
 from fakes import FakeIndex, ScriptedClient, reply, text_reply, tool_call
-from test_loop import BAD, GOOD, PAGES, run, search, submit
+from test_loop import BAD, GOOD, PAGES, Q, run, search, submit
 
 from footnote.agent.loop import run_agent
 from footnote.agent.prompts import SYSTEM_PROMPT, TOOLS, USER_TEMPLATE
+from footnote.agent.submit import SUBMISSION_RESERVE as RESERVE
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS
 from footnote.llm.client import ChatResult
@@ -134,36 +135,52 @@ def first_messages(q: AgentQuestion) -> list[dict[str, Any]]:
     ]
 
 
+def sent_size(client: ScriptedClient, i: int) -> int:
+    return count_input_tokens(client.calls[i], client.tool_sets[i], None)
+
+
 def test_trimming_keeps_the_retry_instruction_intact() -> None:
     many_bad = {**BAD, "citations": BAD["citations"] * 25}
-    q = question_leaving(3500)
-    outs = [
-        reply(tool_call("read_page", {"page_index": 0}, "r")),
-        submit(many_bad),
-        submit(GOOD, "s2"),
-    ]
-    client = ScriptedClient(outs)
+    q = question_leaving(RESERVE + 3500)
+    read = reply(tool_call("read_page", {"page_index": 0}, "r"))
+    client = ScriptedClient([read, submit(many_bad), submit(GOOD, "s2")])
     pages = {**PAGES, 0: "word " * 2900}
     p = run_agent(q, client, pages, FakeIndex([(1, PAGES[1])]))  # type: ignore[arg-type]
     assert p.status == "answered" and len(client.calls) == 3
-    sent = client.calls[-1]
-    assert next(m for m in sent if m.get("tool_call_id") == "r")["content"].startswith(
-        "read page_index"
-    )
-    retry = next(m for m in sent if m.get("tool_call_id") == "s")
+    original = "[page_index 0]\n" + "word " * 2900
+    old = next(m for m in client.calls[-1] if m.get("tool_call_id") == "r")
+    assert old["content"].startswith("read page_index 0") and len(old["content"]) < len(original)
+    assert old["content"] == next(s.summary for s in p.trace if s.tool == "read_page")
+    retry = next(m for m in client.calls[-1] if m.get("tool_call_id") == "s")
     assert retry["content"].startswith("Verification found problems")
     assert retry["content"].count("quote not found") == 25
 
 
-def test_trimming_never_swaps_the_retry_instruction_for_a_summary() -> None:
-    # with 25 citations the submission adds ~550 tokens and its feedback ~550 more; 800 are spare
+def test_a_retry_too_large_for_the_reserve_ends_in_context_limit_not_a_cut_instruction() -> None:
+    # 25 citations add ~550 tokens to the call and ~550 more as feedback; the reserve is 3,000
     many_bad = {**BAD, "citations": BAD["citations"] * 25}
     client = ScriptedClient([submit(many_bad), submit(GOOD, "s2")])
-    q = question_leaving(800)
+    q = question_leaving(RESERVE + 900)
     p = run_agent(q, client, PAGES, FakeIndex([(1, PAGES[1])]))  # type: ignore[arg-type]
     assert len(client.calls) == 1  # the retry cannot fit without cutting its own instruction
     assert p.answer is not None and p.answer.decline_reason == "context limit"
     assert p.verify_ok is False and p.verify_problems
+
+
+def test_research_leaves_room_for_the_submission_and_its_retry() -> None:
+    big = {0: "word " * 2900, 1: PAGES[1], 2: "y " * 2900}
+    reads = [reply(tool_call("read_page", {"page_index": i % 2 * 2}, f"r{i}")) for i in range(6)]
+    client = ScriptedClient([*reads, submit(BAD, "s1"), submit(GOOD, "s2")])
+    p = run_agent(Q, client, big, FakeIndex([(1, PAGES[1])]))  # type: ignore[arg-type]
+    assert p.status == "answered" and p.verify_ok is True and len(client.calls) == 8
+    assert client.tool_choices == [None] * 6 + [FORCE, FORCE]
+    for i in range(6):  # research: trimmed to the limit less the reserve
+        assert sent_size(client, i) <= LIMIT - RESERVE
+    for i in (6, 7):  # submission phase: the full limit
+        assert sent_size(client, i) <= LIMIT
+    assert any(sent_size(client, i) > LIMIT - RESERVE for i in (6, 7))
+    retry = next(m for m in client.calls[7] if m.get("tool_call_id") == "s1")
+    assert retry["content"].startswith("Verification found problems")
 
 
 def test_config_hash_covers_the_new_texts_the_search_width_and_the_forcing_rule() -> None:
@@ -176,11 +193,13 @@ def test_config_hash_covers_the_new_texts_the_search_width_and_the_forcing_rule(
     for name in ("SYSTEM_PROMPT", "RETRY_TEMPLATE", "SUBMIT_NEXT", "LAST_REPLY", "REPLIES_LEFT"):
         assert getattr(prompts, name) in texts
     assert CONFIG["version"] == "2" and CONFIG["tool_limits"]["search_k"] == 8
+    assert CONFIG["submission_reserve_tokens"] == RESERVE == 3_000
     assert CONFIG["submit_forced_when_left"] == 2 and CONFIG["submit_tool_choice"] == FORCE
     assert CONFIG["tools"] == prompts.TOOLS
     prompt = {**CONFIG["prompt"], "system": CONFIG["prompt"]["system"] + " "}
     for changed in (
         {**CONFIG, "submit_forced_when_left": 1},
+        {**CONFIG, "submission_reserve_tokens": 2_000},
         {**CONFIG, "submit_tool_choice": None},
         {**CONFIG, "prompt": prompt},
         {**CONFIG, "prompt": {**CONFIG["prompt"], "submit_next": "x"}},

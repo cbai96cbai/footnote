@@ -17,7 +17,7 @@ from footnote.agent.prompts import (
     TOOLS,
     USER_TEMPLATE,
 )
-from footnote.agent.submit import FORCE, FORCE_WHEN_LEFT
+from footnote.agent.submit import FORCE, FORCE_WHEN_LEFT, SUBMISSION_RESERVE
 from footnote.agent.tools import cap
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS, MAX_CALLS, PRICES, call_max_cost
@@ -66,6 +66,7 @@ CONFIG: dict[str, Any] = {
         "submit_next": SUBMIT_NEXT,
     },
     "submit_forced_when_left": FORCE_WHEN_LEFT,
+    "submission_reserve_tokens": SUBMISSION_RESERVE,
     "submit_tool_choice": FORCE,
     "tool_limits": {
         "read_page_max_tokens": tool_limits.READ_PAGE_MAX_TOKENS,

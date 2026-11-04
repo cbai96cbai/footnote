@@ -12,6 +12,7 @@ from footnote.verify import Calc, verify_answer
 
 SUBMIT = "submit_answer"
 FORCE_WHEN_LEFT = 2  # the last two replies belong to submission
+SUBMISSION_RESERVE = 3_000  # input tokens research must leave free for the submission phase
 FORCE: dict[str, Any] = {"type": "function", "function": {"name": SUBMIT}}
 IGNORED_EXTRA = "ignored: one submission per reply"
 IGNORED_AFTER = "ignored: the answer was already submitted"

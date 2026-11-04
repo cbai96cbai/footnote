@@ -30,7 +30,6 @@ Rules for the answer you submit:
   result copied exactly; each expression uses at least one number from a cited quote or an earlier
   result. You may use an earlier calculate result in a later expression if you copy it exactly;
   otherwise write the whole calculation as one expression.
-- Every number in your answer must come from a cited quote or a calculation on cited quotes.
 - Arithmetic constants: for an average of two figures use (a+b)/2; for a percentage use a/b*100;
   never use 0.5 or other decimals as constants. Only whole numbers 1 to 12, 360, 365, 100, 1000,
   1000000 and 1000000000 may appear in an expression without being quoted.
