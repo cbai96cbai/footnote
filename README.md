@@ -11,8 +11,9 @@ once.
 
 - **Answers with quotes.** Each answer cites the filing page and the quotes behind it. A code
   check confirms the quotes appear on the cited pages and that the final number is a rounding of a
-  quoted number or of a logged calculation over quoted numbers or the exact results of earlier
-  such calculations, scaled by thousands, millions or billions where the unit calls for it.
+  quoted number (either sign) or of a logged calculation over quoted numbers or the exact results of
+  earlier such calculations. For money, counts and other units the number may be scaled by a power
+  of 1,000; percents and ratios take no scale.
 - **Compared on equal terms.** The agent is scored against three baselines (no documents, plain
   retrieval, long context) with the same model and the same grading; the systems that read
   documents all get the same filing.
@@ -96,9 +97,11 @@ After the agent submits, code checks two things.
    hyphenation.
 2. The final numeric answer is a correct rounding of a number in a cited quote, or the result of a
    logged calculation over quoted numbers or the exact results of earlier such calculations (plus
-   small constants such as /2, x100, x365). A quoted number and a calculation result may each be
-   scaled by a power of 1,000 (thousands, millions, billions). The baselines have no logged
-   calculations.
+   small constants such as /2, x100, x365). A figure counts with either sign: a value in
+   parentheses or with a minus sign is the same figure. For the units usd, count and other, a quoted
+   number and a calculation result may each be scaled by a power of 1,000 (thousands, millions,
+   billions); percent and ratio take no scale. A percent may also be a calculation result times
+   100, never a quoted number times 100. The baselines have no logged calculations.
 
 It does not check numbers in the explanation text. It does not prove a number means what the answer
 says: a quoted figure can be in the wrong units or for the wrong period and still pass. The grader

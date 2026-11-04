@@ -167,7 +167,7 @@ def test_missing_usage_on_success_is_charged_max() -> None:
     resp.usage = None
     c, _ = client([resp])
     r = c.chat(MSGS, deployment="footnote-agent", limits=LIMITS["agent"])
-    assert r.usage.charged_max and r.usage.cost == Decimal("0.010")
+    assert r.usage.charged_max and r.usage.cost == Decimal("0.012")
 
 
 def test_other_client_error_is_failed_and_free() -> None:

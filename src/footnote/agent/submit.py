@@ -6,13 +6,17 @@ from typing import Any, Literal
 from pydantic import ValidationError
 
 from footnote.agent.prompts import RETRY_TEMPLATE
-from footnote.agent.tools import cap
+from footnote.agent.tools import cap, cut_to_tokens
 from footnote.answers import AgentAnswer
 from footnote.verify import Calc, verify_answer
 
 SUBMIT = "submit_answer"
 FORCE_WHEN_LEFT = 2  # the last two replies belong to submission
-SUBMISSION_RESERVE = 3_000  # input tokens research must leave free for the submission phase
+# research calls stay at or under this many input tokens (older tool results are trimmed to get
+# there); only the submission phase may go up to the per-call limit, which leaves headroom for the
+# last research reply, the submission and its feedback
+RESEARCH_INPUT_TARGET = 13_000
+MAX_PROBLEM_TOKENS = 1_000  # the problem list in the retry feedback is cut to this size
 FORCE: dict[str, Any] = {"type": "function", "function": {"name": SUBMIT}}
 IGNORED_EXTRA = "ignored: one submission per reply"
 IGNORED_AFTER = "ignored: the answer was already submitted"
@@ -26,6 +30,12 @@ def declined(reason: str) -> AgentAnswer:
 
 def tool_choice_for(replies_left: int) -> dict[str, Any] | None:
     return FORCE if replies_left <= FORCE_WHEN_LEFT else None
+
+
+def _capped(problems: str) -> str:
+    """The problem list cut to MAX_PROBLEM_TOKENS (including the ellipsis that marks the cut)."""
+    text, cut = cut_to_tokens(problems, MAX_PROBLEM_TOKENS - 1)
+    return text + "…" if cut else text
 
 
 @dataclass(frozen=True)
@@ -53,7 +63,10 @@ def judge(
     if ok:
         return Attempt("accepted", "accepted", "verified", answer)
     joined = "; ".join(problems)
-    feedback = f"problems: {joined}" if retried else RETRY_TEMPLATE.format(problems=joined)
+    if retried:
+        feedback = f"problems: {joined}"
+    else:
+        feedback = RETRY_TEMPLATE.format(problems=_capped(joined))
     return Attempt(
         "failed", feedback, cap("verification failed: " + joined), answer, tuple(problems)
     )

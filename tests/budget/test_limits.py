@@ -4,7 +4,7 @@ from footnote.budget.limits import LIMITS, MAX_CALLS, PRICES, call_cost, call_ma
 
 
 def test_call_max_cost_exact() -> None:
-    assert call_max_cost(LIMITS["agent"], PRICES["gpt-5-mini"]) == Decimal("0.010")
+    assert call_max_cost(LIMITS["agent"], PRICES["gpt-5-mini"]) == Decimal("0.012")
 
 
 def test_grader_and_long_context_maxima() -> None:
@@ -14,7 +14,7 @@ def test_grader_and_long_context_maxima() -> None:
 
 def test_limit_values_and_call_counts() -> None:
     assert {k: (v.max_input_tokens, v.max_completion_tokens) for k, v in LIMITS.items()} == {
-        "agent": (16_000, 3_000),
+        "agent": (24_000, 3_000),
         "plain_retrieval": (12_000, 3_000),
         "long_context": (200_000, 3_000),
         "no_docs": (2_000, 3_000),

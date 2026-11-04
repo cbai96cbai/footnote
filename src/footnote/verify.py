@@ -5,17 +5,19 @@
 2. The answer's structured final value is a correct rounding of a number written in a cited quote,
    or of a logged calculation whose numbers come from cited quotes or from the exact results of
    earlier such calculations (plus small fixed constants such as 2, 12, 365 or 100, with at least
-   one cited or earlier-result number in every calculation). Units:
+   one cited or earlier-result number in every calculation). A figure counts with either sign: a
+   value shown in parentheses or with a minus sign is the same figure. Units:
    - usd, count and other: the value may be a quoted number or a calculation result scaled by a
      power of 1,000 (thousands, millions, billions; tables rarely state their unit in the quoted
      line), either direction.
-   - percent and ratio: the value must match the quoted number as written. A percent may also be a
-     calculation result times 100 (1018/1557 gives 65.4), never a quoted number times 100.
+   - percent and ratio: no scale applies; the value must match the quoted number as written. A
+     percent may also be a calculation result times 100 (1018/1557 gives 65.4), never a quoted
+     number times 100.
    - a quoted number written with a % sign supports only a percent value; a plain table cell such
      as "65.4" may support 65.4 percent.
    - a value of zero is supported only by a source that is zero, never by a tiny number that
      rounds to zero.
-   Signs are not compared. A final value with an absurd size is reported as out of range.
+   A final value with an absurd size is reported as out of range.
 
 Numbers in the free-text answer are not checked; the grader measures whether the answer is right.
 """
