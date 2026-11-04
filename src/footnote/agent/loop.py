@@ -4,17 +4,24 @@ import json
 import time
 from typing import Any, Literal
 
-from pydantic import ValidationError
-
 from footnote.agent.prompts import (
     LAST_REPLY,
     NUDGE_LENGTH,
     NUDGE_NO_TOOL,
     REPLIES_LEFT,
-    RETRY_TEMPLATE,
+    SUBMIT_NEXT,
     SYSTEM_PROMPT,
     TOOLS,
     USER_TEMPLATE,
+)
+from footnote.agent.submit import (
+    FORCE_WHEN_LEFT,
+    IGNORED_AFTER,
+    IGNORED_EXTRA,
+    SUBMIT,
+    declined,
+    judge,
+    tool_choice_for,
 )
 from footnote.agent.tools import SearchIndex, Toolbox, ToolError, cap, trace_args
 from footnote.answers import AgentAnswer
@@ -23,18 +30,10 @@ from footnote.budget.limits import LIMITS, MAX_CALLS
 from footnote.llm.client import CallFailed, ChatResult, LLMClient, Usage
 from footnote.llm.tokens import count_input_tokens
 from footnote.prediction import NO_USAGE, RATE_LIMITED, Prediction, Step, add_usage
-from footnote.verify import verify_answer
 
 FAMILY = "agent"
-VERSION = "1"
-SUBMIT = "submit_answer"
+VERSION = "2"
 _Status = Literal["answered", "declined", "error"]
-
-
-def _declined(reason: str) -> AgentAnswer:
-    return AgentAnswer(
-        answer="", final_value=None, declined=True, decline_reason=reason, citations=[]
-    )
 
 
 class _Agent:
@@ -61,6 +60,7 @@ class _Agent:
         self.pages_read: list[int] = []
         self.retried = False
         self.last_problems: list[str] = []
+        self.latest_feedback = ""  # tool_call_id of the newest submission feedback; never trimmed
         self.started = time.monotonic()
 
     # -- the result -------------------------------------------------------------------------
@@ -91,7 +91,7 @@ class _Agent:
         self.trace.append(Step("decline", {}, cap(reason), NO_USAGE))
         failed = bool(self.last_problems)
         return self._result(
-            "declined", _declined(reason), False if failed else None, self.last_problems
+            "declined", declined(reason), False if failed else None, self.last_problems
         )
 
     def _error(self, reason: str, *, rate_limited: bool = False) -> Prediction:
@@ -110,6 +110,8 @@ class _Agent:
             if self._size() <= limit:
                 break
             summary = self.summaries.get(m.get("tool_call_id", ""))
+            if m.get("tool_call_id") == self.latest_feedback:
+                continue
             if m.get("role") == "tool" and summary is not None and m["content"] != summary:
                 m["content"] = summary
         return self._size() <= limit
@@ -127,6 +129,7 @@ class _Agent:
                     deployment=self.client.settings.agent_deployment,
                     limits=LIMITS["agent"],
                     tools=TOOLS,
+                    tool_choice=tool_choice_for(MAX_CALLS["agent"] - self.calls),
                 )
             except CallFailed as exc:
                 self.usage = add_usage(self.usage, exc.usage)
@@ -159,11 +162,16 @@ class _Agent:
             return None
         self.messages.append(res.message)
         final: Prediction | None = None
+        submitted = False
         for i, call in enumerate(calls):
             usage = res.usage if i == 0 else NO_USAGE  # one charge, shown once
+            is_submit = call.get("function", {}).get("name") == SUBMIT
             if final is not None:
-                self._reply(call, "ignored: the answer was already submitted", usage)
+                self._reply(call, IGNORED_AFTER, usage)
+            elif is_submit and submitted:
+                self._reply(call, IGNORED_EXTRA, usage)
             else:
+                submitted = submitted or is_submit
                 final = self._tool_call(call, usage)
         if final is None and self.messages[-1].get("role") == "tool":
             self.messages[-1]["content"] += "\n" + self._left()
@@ -171,7 +179,9 @@ class _Agent:
 
     def _left(self) -> str:
         n = MAX_CALLS["agent"] - self.calls
-        return LAST_REPLY if n == 1 else REPLIES_LEFT.format(n=n)
+        if n == 1:
+            return LAST_REPLY
+        return SUBMIT_NEXT if n == FORCE_WHEN_LEFT else REPLIES_LEFT.format(n=n)
 
     def _reply(self, call: dict[str, Any], content: str, usage: Usage) -> None:
         fn = call.get("function", {})
@@ -224,37 +234,20 @@ class _Agent:
     def _submit(
         self, call: dict[str, Any], args: dict[str, Any], usage: Usage
     ) -> Prediction | None:
-        try:
-            answer = AgentAnswer.model_validate(args)
-        except ValidationError as exc:
-            self._tool_error(
-                call,
-                SUBMIT,
-                args,
-                f"answer does not match the schema ({exc.error_count()} errors)",
-                usage,
-            )
+        attempt = judge(args, self.pages, self.q.question, self.tools.calcs, retried=self.retried)
+        self._record(call, SUBMIT, args, attempt.feedback, attempt.summary, usage)
+        self.latest_feedback = call["id"]
+        if attempt.answer is None:  # does not match the schema: the model may submit again
             return None
-        if answer.declined:
-            self._record(call, SUBMIT, args, "declined", "declined", usage)
-            return self._result("declined", answer)
-        ok, problems = verify_answer(answer, self.pages, self.q.question, self.tools.calcs)
-        if ok:
-            self._record(call, SUBMIT, args, "accepted", "verified", usage)
-            return self._result("answered", answer, True)
+        if attempt.kind == "declined":
+            return self._result("declined", attempt.answer)
+        if attempt.kind == "accepted":
+            return self._result("answered", attempt.answer, True)
+        problems = list(attempt.problems)
         self.last_problems = problems
-        self._record(
-            call,
-            SUBMIT,
-            args,
-            "problems: " + "; ".join(problems),
-            cap("verification failed: " + "; ".join(problems)),
-            usage,
-        )
         if self.retried:
-            return self._result("declined", _declined("; ".join(problems)), False, problems)
+            return self._result("declined", declined("; ".join(problems)), False, problems)
         self.retried = True
-        self.messages[-1]["content"] = RETRY_TEMPLATE.format(problems="; ".join(problems))
         return None
 
 

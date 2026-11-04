@@ -178,7 +178,7 @@ def test_declined_by_model_and_registration() -> None:
     )
     p, _ = run([submit(d.model_dump(mode="json"))])
     assert p.status == "declined" and p.verify_ok is None
-    assert SPEC.family == "agent" and SPEC.version == "1" and SPEC.config == CONFIG
+    assert SPEC.family == "agent" and SPEC.version == "2" and SPEC.config == CONFIG
     assert SPEC.max_cost_per_question > 0 and CONFIG["max_calls"] == 8
 
 

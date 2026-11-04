@@ -21,10 +21,12 @@ class ScriptedClient:
         self.outcomes = list(outcomes)
         self.calls: list[list[dict[str, Any]]] = []
         self.tool_sets: list[Any] = []
+        self.tool_choices: list[Any] = []  # what each call asked for; None when not forced
 
     def chat(self, messages: Any, **kw: Any) -> ChatResult:
         self.calls.append(json.loads(json.dumps(list(messages))))  # a snapshot of this call
         self.tool_sets.append(kw.get("tools"))
+        self.tool_choices.append(kw.get("tool_choice"))
         outcome = self.outcomes.pop(0)
         if isinstance(outcome, Exception):
             raise outcome

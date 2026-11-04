@@ -12,10 +12,12 @@ from footnote.agent.prompts import (
     NUDGE_NO_TOOL,
     REPLIES_LEFT,
     RETRY_TEMPLATE,
+    SUBMIT_NEXT,
     SYSTEM_PROMPT,
     TOOLS,
     USER_TEMPLATE,
 )
+from footnote.agent.submit import FORCE, FORCE_WHEN_LEFT
 from footnote.agent.tools import cap
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS, MAX_CALLS, PRICES, call_max_cost
@@ -61,7 +63,10 @@ CONFIG: dict[str, Any] = {
         "verification_retry": RETRY_TEMPLATE,
         "replies_left": REPLIES_LEFT,
         "last_reply": LAST_REPLY,
+        "submit_next": SUBMIT_NEXT,
     },
+    "submit_forced_when_left": FORCE_WHEN_LEFT,
+    "submit_tool_choice": FORCE,
     "tool_limits": {
         "read_page_max_tokens": tool_limits.READ_PAGE_MAX_TOKENS,
         "search_k": tool_limits.SEARCH_K,
