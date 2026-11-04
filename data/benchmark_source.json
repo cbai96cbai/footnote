@@ -1,0 +1,8 @@
+{
+ "dataset": "PatronusAI/financebench",
+ "file": "financebench_merged.jsonl",
+ "revision": "e04404e3a97f69f79c14d42f24981a1c9c3bcd18",
+ "license": "CC BY-NC 4.0",
+ "document_metadata": "gics_sector, doc_type, doc_period, doc_link are columns of this file",
+ "pdfs": "https://raw.githubusercontent.com/patronus-ai/financebench/cc39aeb4afdf33909ee1412188bf89035950c2eb/pdfs/{doc_name}.pdf"
+}
