@@ -185,3 +185,21 @@ def test_every_config_states_the_display_rule() -> None:
 
     assert CONFIG["display"] == DISPLAY_RULE
     assert all(c["display"] == DISPLAY_RULE for c in baseline_settings().values())
+
+
+def test_baselines_share_the_quote_rules_and_a_new_version() -> None:
+    from footnote.baselines import common, plain_retrieval
+    from footnote.systems import hash_config
+
+    text = " ".join(common.INSTRUCTIONS.split())
+    assert "one unbroken piece of text from one page, at most 400 characters" in text
+    assert "a sentence, or one table row with its label" in text
+    assert "Never join separate lines or rows with '...'" in text
+    assert "Never put a calculation in a quote" in text
+    assert "calculate" not in text.lower() and "earlier" not in text.lower()
+    assert common.VERSION == "2"
+    for spec in (no_docs.SPEC, plain_retrieval.SPEC, long_context.SPEC):
+        assert spec.version == "2" and spec.config["version"] == "2"
+        assert spec.config["prompt"]["system"] == common.INSTRUCTIONS
+        old = {**spec.config, "prompt": {**spec.config["prompt"], "system": "old"}}
+        assert hash_config(old) != hash_config(spec.config)

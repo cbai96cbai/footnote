@@ -12,7 +12,7 @@ from footnote.corpus.normalize import DISPLAY_RULE
 from footnote.llm.client import CallFailed, LLMClient, Usage
 from footnote.prediction import NO_USAGE, RATE_LIMITED, Prediction, Step, add_usage
 
-VERSION = "1"
+VERSION = "2"
 
 INSTRUCTIONS = """\
 You answer one question about one SEC filing. Reply only with a JSON object with these fields.
@@ -25,7 +25,10 @@ You answer one question about one SEC filing. Reply only with a JSON object with
 - declined: true only when the material provided to you cannot support an answer; otherwise false.
 - decline_reason: why you declined, or null.
 - citations: exact quotes copied from the provided pages that support the answer, each with its
-  page number as written in the [page N] marker. Use an empty list when no pages are provided."""
+  page number as written in the [page N] marker. Use an empty list when no pages are provided.
+  Each quote is one unbroken piece of text from one page, at most 400 characters: a sentence, or
+  one table row with its label. Never join separate lines or rows with '...'; cite each row as its
+  own quote. Never put a calculation in a quote."""
 
 FILING_LINE = "The question is about this filing: {doc_name} ({company})."
 
