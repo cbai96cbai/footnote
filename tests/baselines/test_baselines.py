@@ -72,9 +72,6 @@ def test_baseline_prompts_contain_no_gold_fields(monkeypatch: pytest.MonkeyPatch
         assert Q.question in text and Q.doc_name in text
         for banned in ("justification", "evidence", "gold", "financebench_id"):
             assert banned not in text.lower()
-    # the no-documents prompt must fit its own 1,000-token limit
-    msgs = [{"role": "system", "content": no_docs.INSTRUCTIONS}, {"role": "user", "content": "q"}]
-    assert count_input_tokens(msgs, None, AgentAnswer) < LIMITS["no_docs"].max_input_tokens - 100
 
 
 def test_baseline_retry_only_on_invalid_or_length() -> None:

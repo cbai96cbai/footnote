@@ -18,7 +18,7 @@
     "family": "no-docs",
     "limits": {
       "max_completion_tokens": 3000,
-      "max_input_tokens": 1000,
+      "max_input_tokens": 2000,
       "reasoning_effort": "low"
     },
     "max_calls": 2,

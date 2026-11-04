@@ -17,7 +17,7 @@ def test_limit_values_and_call_counts() -> None:
         "agent": (16_000, 3_000),
         "plain_retrieval": (12_000, 3_000),
         "long_context": (200_000, 3_000),
-        "no_docs": (1_000, 3_000),
+        "no_docs": (2_000, 3_000),
         "grader": (4_000, 500),
     }
     assert MAX_CALLS == {"agent": 8, "baseline": 2, "grader": 2}

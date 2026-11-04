@@ -31,7 +31,7 @@ LIMITS: dict[str, CallLimits] = {
     "agent": CallLimits(16_000, 3_000, "low"),
     "plain_retrieval": CallLimits(12_000, 3_000, "low"),
     "long_context": CallLimits(200_000, 3_000, "low"),
-    "no_docs": CallLimits(1_000, 3_000, "low"),
+    "no_docs": CallLimits(2_000, 3_000, "low"),
     "grader": CallLimits(4_000, 500, None),
 }
 
