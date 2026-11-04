@@ -14,7 +14,12 @@ from footnote.prediction import Prediction
 from footnote.systems import register_system
 
 FAMILY = "no-docs"
-USER_TEMPLATE = "{filing}\nNo pages of the filing are provided.\n\nQuestion: {question}"
+USER_TEMPLATE = (
+    "{filing}\nNo pages of the filing are provided. This overrides the rule about declining: "
+    "answer from your own knowledge of the company's public filings and give your best "
+    "final_value; set declined to true only if you have no basis at all for an answer.\n\n"
+    "Question: {question}"
+)
 PACKING = "none: no pages are placed in the prompt"
 
 

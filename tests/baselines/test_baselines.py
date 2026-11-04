@@ -115,3 +115,9 @@ def test_settings_file_matches_constants() -> None:
             "no_docs" if fam == "no-docs" else "long_context"
         ].max_input_tokens
         assert spec.max_cost_per_question > 0
+
+
+def test_no_docs_prompt_answers_from_knowledge_long_context_does_not() -> None:
+    assert "from your own knowledge" in no_docs.USER_TEMPLATE
+    assert "from your own knowledge" not in long_context.USER_TEMPLATE
+    assert "from your own knowledge" not in long_context.INSTRUCTIONS
