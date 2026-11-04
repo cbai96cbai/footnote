@@ -1,4 +1,4 @@
-"""footnote eval | compare (failures comes later)."""
+"""footnote eval | compare | failures."""
 
 from pathlib import Path
 from typing import Annotated, cast, get_args
@@ -8,7 +8,9 @@ import typer
 from footnote.benchmark import load_questions
 from footnote.budget.tally import Tally
 from footnote.config import Settings
-from footnote.eval.records import read_verdicts
+from footnote.eval.failures import FAILURE_TYPES, classify_run, failures_markdown
+from footnote.eval.gold import load_gold
+from footnote.eval.records import read_predictions, read_verdicts
 from footnote.eval.registry import TestRunRefused
 from footnote.eval.run import DEFAULT_RESULTS, register_known_systems, run_eval
 from footnote.eval.split import SplitName
@@ -81,3 +83,17 @@ def compare_cmd(run_a: str, run_b: str, results_dir: ResultsDir = DEFAULT_RESULT
         typer.echo(f"{name}: {acc:.3f} (95% CI {lo:.3f} to {hi:.3f}) on {len(shared)} questions")
     d, lo, hi = paired_cluster_bootstrap(a, b)
     typer.echo(f"{run_a} minus {run_b}: {d:+.3f} (95% CI {lo:+.3f} to {hi:+.3f})")
+
+
+@app.command("failures")
+def failures_cmd(run_id: str, results_dir: ResultsDir = DEFAULT_RESULTS) -> None:
+    run_dir = results_dir / run_id
+    verdicts = read_verdicts(run_dir)
+    if not verdicts:
+        typer.echo(f"{run_id}: no verdicts found", err=True)
+        raise typer.Exit(1)
+    types = classify_run(read_predictions(run_dir), verdicts, load_gold())
+    (run_dir / "failures.md").write_text(failures_markdown(run_id, types), encoding="utf-8")
+    for t in FAILURE_TYPES:
+        typer.echo(f"{t:15} {sum(x == t for x in types.values())}")
+    typer.echo(f"{'total':15} {len(types)} of {len(verdicts)} questions; wrote failures.md")
