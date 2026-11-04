@@ -14,7 +14,7 @@ FailureType = Literal[
 ]
 FAILURE_TYPES: tuple[str, ...] = get_args(FailureType)
 
-# The no-documents system reads no pages, so "none of the gold pages was read" says nothing about it.
+# The no-documents system reads no pages, so "no gold page was read" says nothing about it.
 SYSTEMS_WITHOUT_PAGES = frozenset({"no-docs"})
 
 
