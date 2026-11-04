@@ -1,6 +1,6 @@
 # footnote
 
-An agent that answers questions about SEC filings and shows the exact quote behind its answer.
+An agent that answers questions about SEC filings and cites the quotes behind its answer.
 
 Recording: (added when the site is published)
 Live site: (link added when the site is published)
@@ -9,14 +9,17 @@ Footnote answers questions about SEC filings from the FinanceBench open sample,
 then measures itself against simpler systems that use the same model, on a test split that is run
 once.
 
-- **Answers with quotes.** Each answer cites the filing page and the quote behind it. A code
-  check confirms the quotes exist and that the final number follows from them.
+- **Answers with quotes.** Each answer cites the filing page and the quotes behind it. A code
+  check confirms the quotes appear on the cited pages and that the final number is a rounding of a
+  quoted number or of a logged calculation over quoted numbers.
 - **Compared on equal terms.** The agent is scored against three baselines (no documents, plain
   retrieval, long context) with the same model and the same grading; the systems that read
   documents all get the same filing.
 - **Uncertainty.** Accuracy comes with a 95% interval that resamples whole companies, plus
   answer coverage, cost per question and latency. A static site shows each answer, its
-  trace and the grader's verdict, including failures; citations are shown for answered questions.
+  trace and the grader's verdict, including failures. Citations are shown only for answers whose
+  quote check passed; otherwise the page says the quote was not found in the filing, or that it
+  was not checked.
 
 ## Architecture
 
@@ -32,23 +35,26 @@ flowchart LR
     E --> W[site<br/>static HTML]
 ```
 
-`tests/test_import_boundaries.py` fails if any upstream package imports `eval` or touches the raw benchmark rows.
+`tests/test_import_boundaries.py` statically checks imports (it parses the source for import statements) and fails if any upstream package imports `eval` or touches the raw benchmark rows. It does not detect dynamic imports.
 
 ## Results
 
 Not yet available. The table is filled in after the single frozen run of each system on the test
 split (57 questions, 11 companies). No number in this table is a measurement yet.
 
-| System | Accuracy (95% interval, company-clustered) | Answer coverage | Cost per question | Mean latency |
-| :- | :-: | :-: | :-: | :-: |
-| Without documents | - | - | - | - |
-| Plain retrieval | - | - | - | - |
-| Long context | - | - | - | - |
-| Agent | - | - | - | - |
+| System | Accuracy (95% interval, company-clustered) | Agent minus this system (paired 95% interval) | Answer coverage | Cost per question | Mean latency |
+| :- | :-: | :-: | :-: | :-: | :-: |
+| Without documents | - | — | - | - | - |
+| Plain retrieval | - | — | - | - | - |
+| Long context | - | — | - | - | - |
+| Agent | - | reference | - | - | - |
+
+The paired difference is the agent's accuracy minus the other system's on the questions both were
+graded on, with an interval that resamples whole companies (the same ones for both systems).
 
 Historical context only, from the FinanceBench paper (Islam et al., arXiv:2311.11944), GPT-4-Turbo,
 November 2023, graded by humans: 19% with one shared vector store, 50% with one store per filing,
-79% with long context, 85% when given the evidence pages. Different models, grading and setup, so
+79% with long context, 85% when given the evidence pages. Different models, human grading and retrieval setups, so
 these are not a baseline for the table above.
 
 ## Failure examples

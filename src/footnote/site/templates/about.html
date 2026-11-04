@@ -5,7 +5,7 @@
 
 <h2>What this is</h2>
 <p>Footnote is a personal portfolio project. An agent reads SEC filings and answers questions
-about them, citing the exact quote behind each claim. Its answers are scored against baselines
+about them, citing the quotes behind its answers. Its answers are scored against baselines
 that use the same model, on the FinanceBench open sample, with intervals that resample whole
 companies.</p>
 
@@ -35,8 +35,10 @@ explanation text are not checked. The check does not prove a number means what t
 (units, periods); correctness is the grader's job, and the grader measures it.</p>
 
 <h2>How answers are graded</h2>
-<p>Numeric questions are matched against the reference value. Others are judged by a separate
-language-model grader that sees the question, the reference answer and the system's answer. Where
+<p>Code grades an answer only when the question is a metrics-generated one, its reference answer
+is a single number, and the system's answer gives a structured final value (number and unit); the
+match uses a stated tolerance. Every other answer is judged by a separate language-model grader
+that sees the question, the reference answer and the system's answer. Where
 grader agreement was checked against reference labels written by an AI, the figures are
 AI-reference estimates, not human agreement rates.</p>
 
@@ -47,7 +49,7 @@ AI-reference estimates, not human agreement rates.</p>
   <li>Development runs informed design choices and are labeled exploratory. Claims of difference
   rest on the test split, which each system family ran once.</li>
   <li>Grading by a model can be wrong in both directions.</li>
-  <li>The 2023 paper numbers use different models and human grading, so they are context only.</li>
+  <li>The 2023 paper numbers use different models, human grading and different retrieval setups, so they are context only.</li>
   <li>Source links are checked once and fall back to an SEC EDGAR search when a link is dead.</li>
 </ul>
 {% endblock %}
