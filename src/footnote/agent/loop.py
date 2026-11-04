@@ -22,22 +22,13 @@ from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS, MAX_CALLS
 from footnote.llm.client import CallFailed, ChatResult, LLMClient, Usage
 from footnote.llm.tokens import count_input_tokens
-from footnote.prediction import NO_USAGE, Prediction, Step
+from footnote.prediction import NO_USAGE, RATE_LIMITED, Prediction, Step, add_usage
 from footnote.verify import verify_answer
 
 FAMILY = "agent"
 VERSION = "1"
 SUBMIT = "submit_answer"
 _Status = Literal["answered", "declined", "error"]
-
-
-def _add(a: Usage, b: Usage) -> Usage:
-    return Usage(
-        a.input_tokens + b.input_tokens,
-        a.output_tokens + b.output_tokens,
-        a.cost + b.cost,
-        a.charged_max or b.charged_max,
-    )
 
 
 def _declined(reason: str) -> AgentAnswer:
@@ -103,8 +94,9 @@ class _Agent:
             "declined", _declined(reason), False if failed else None, self.last_problems
         )
 
-    def _error(self, reason: str) -> Prediction:
-        self.trace.append(Step("error", {}, cap(reason), NO_USAGE))
+    def _error(self, reason: str, *, rate_limited: bool = False) -> Prediction:
+        args = {"reason": RATE_LIMITED} if rate_limited else {}
+        self.trace.append(Step("error", args, cap(reason), NO_USAGE))
         return self._result("error", None)
 
     # -- context ----------------------------------------------------------------------------
@@ -137,13 +129,13 @@ class _Agent:
                     tools=TOOLS,
                 )
             except CallFailed as exc:
-                self.usage = _add(self.usage, exc.usage)
+                self.usage = add_usage(self.usage, exc.usage)
                 self.trace.append(Step("chat", {"call": self.calls + 1}, cap(str(exc)), exc.usage))
-                return self._error(f"call failed: {exc}")
+                return self._error(f"call failed: {exc}", rate_limited=exc.rate_limited)
             except Exception as exc:  # nothing was sent or charged
                 return self._error(f"call not made: {type(exc).__name__}: {exc}")
             self.calls += 1
-            self.usage = _add(self.usage, res.usage)
+            self.usage = add_usage(self.usage, res.usage)
             try:
                 done = self._handle(res)
             except Exception as exc:  # the charge is already in self.usage

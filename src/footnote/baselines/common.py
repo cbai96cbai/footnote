@@ -9,7 +9,7 @@ from footnote.answers import AgentAnswer
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS, MAX_CALLS, PRICES, CallLimits, call_max_cost
 from footnote.llm.client import CallFailed, LLMClient, Usage
-from footnote.prediction import NO_USAGE, Prediction, Step
+from footnote.prediction import NO_USAGE, RATE_LIMITED, Prediction, Step, add_usage
 
 VERSION = "1"
 
@@ -48,15 +48,6 @@ def family_config(family: str, limits_key: str, user_template: str, packing: str
     }
 
 
-def _add(a: Usage, b: Usage) -> Usage:
-    return Usage(
-        a.input_tokens + b.input_tokens,
-        a.output_tokens + b.output_tokens,
-        a.cost + b.cost,
-        a.charged_max or b.charged_max,
-    )
-
-
 def _wrongly_ended(finish: str) -> bool:
     return finish in ("content_filter", "no_choices")
 
@@ -77,6 +68,7 @@ def run_calls(
     usage = NO_USAGE
     answer: AgentAnswer | None = None
     reason = ""
+    rate_limited = False
 
     def step(summary: str, u: Usage, **args: Any) -> None:
         trace.append(Step("chat", args, summary, u))
@@ -90,15 +82,16 @@ def run_calls(
                 response_schema=AgentAnswer,
             )
         except CallFailed as exc:
-            usage = _add(usage, exc.usage)
+            usage = add_usage(usage, exc.usage)
             step(f"call failed: {exc}", exc.usage, attempt=attempt)
             reason = f"call failed: {exc}"
+            rate_limited = exc.rate_limited
             break
         except Exception as exc:  # nothing was sent or charged; recorded, never raised
             step(f"call not made: {type(exc).__name__}: {exc}", NO_USAGE, attempt=attempt)
             reason = f"call not made: {type(exc).__name__}: {exc}"
             break
-        usage = _add(usage, res.usage)
+        usage = add_usage(usage, res.usage)
         step(
             f"finish_reason={res.finish_reason} parse_error={res.parse_error}",
             res.usage,
@@ -116,7 +109,8 @@ def run_calls(
     if answer is not None:
         status = "declined" if answer.declined else "answered"
     elif reason:
-        trace.append(Step("error", {}, reason, NO_USAGE))
+        args = {"reason": RATE_LIMITED} if rate_limited else {}
+        trace.append(Step("error", args, reason, NO_USAGE))
     return Prediction(
         question_id=q.id,
         system=family,

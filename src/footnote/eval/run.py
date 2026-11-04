@@ -26,8 +26,14 @@ from footnote.eval.registry import complete_test_run, start_test_run
 from footnote.eval.split import SplitName, load_split
 from footnote.eval.summary import build_summary, is_grader_error, rubric_hash
 from footnote.eval.verify_pass import PagesLoader, load_page_texts, with_verification
-from footnote.llm.client import LLMClient, Usage
-from footnote.prediction import Prediction, Step
+from footnote.llm.client import CallFailed, LLMClient, Usage
+from footnote.prediction import (
+    RATE_LIMITED,
+    Prediction,
+    Step,
+    add_usage,
+    is_retriable_error,
+)
 from footnote.systems import SystemSpec, get_system
 
 DEFAULT_RESULTS = Path("results")
@@ -43,9 +49,12 @@ def register_known_systems() -> None:
 def _error_prediction(
     spec: SystemSpec, q: AgentQuestion, exc: Exception, started: float
 ) -> Prediction:
-    # what the runner spent before raising is unknown: charge the system's per-question maximum
-    usage = Usage(0, 0, spec.max_cost_per_question, True)
-    step = Step("error", {}, f"{type(exc).__name__}: {exc}", usage)
+    if isinstance(exc, CallFailed) and exc.rate_limited:  # refused before processing: no charge
+        usage, args = exc.usage, {"reason": RATE_LIMITED}
+    else:
+        # what the runner spent before raising is unknown: charge the per-question maximum
+        usage, args = Usage(0, 0, spec.max_cost_per_question, True), {}
+    step = Step("error", args, f"{type(exc).__name__}: {exc}", usage)
     return Prediction(
         q.id,
         spec.family,
@@ -81,14 +90,7 @@ def _grade(
 
 def _with_earlier_usage(v: Verdict, earlier: Usage) -> Verdict:
     """A re-graded verdict keeps the cost of the failed grading before it."""
-    u = v.usage
-    total = Usage(
-        u.input_tokens + earlier.input_tokens,
-        u.output_tokens + earlier.output_tokens,
-        u.cost + earlier.cost,
-        u.charged_max or earlier.charged_max,
-    )
-    return replace(v, usage=total)
+    return replace(v, usage=add_usage(v.usage, earlier))
 
 
 def _selected(
@@ -136,7 +138,13 @@ def run_eval(
         write_identity(run_dir, identity)
         gold = gold if gold is not None else load_gold()
         preds, verdicts = read_predictions(run_dir), read_verdicts(run_dir)
-        remaining = [q for q in selected if q.id not in verdicts or is_grader_error(verdicts[q.id])]
+        remaining = [
+            q
+            for q in selected
+            if q.id not in verdicts
+            or is_grader_error(verdicts[q.id])
+            or is_retriable_error(preds[q.id])
+        ]
         grader_price = client.price_for(settings.grader_deployment)
         per_question = spec.max_cost_per_question + 2 * call_max_cost(
             LIMITS["grader"], grader_price
@@ -146,10 +154,14 @@ def run_eval(
             tally.admit(run_id, admitted)
         spent = Decimal(0)
         for q in remaining:
-            if q.id not in preds:
-                preds[q.id] = with_verification(_predict(spec, q, client), q, pages_loader)
-                append_prediction(run_dir, preds[q.id])
-                spent += preds[q.id].usage.cost
+            old_pred = preds.get(q.id)
+            if old_pred is None or is_retriable_error(old_pred):
+                new_pred = with_verification(_predict(spec, q, client), q, pages_loader)
+                if old_pred is not None:  # the refused attempt's charge stays on the question
+                    new_pred = replace(new_pred, usage=add_usage(new_pred.usage, old_pred.usage))
+                preds[q.id] = new_pred
+                append_prediction(run_dir, new_pred)
+                spent += new_pred.usage.cost
             new = _grade(q, gold[q.id], preds[q.id], client, settings.grader_deployment)
             spent += new.usage.cost
             old = verdicts.get(q.id)

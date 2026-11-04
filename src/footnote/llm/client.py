@@ -2,7 +2,10 @@
 
 A call that returns usage is charged that usage. A call that was sent but returned no usage
 (timeout, dropped connection, any 5xx) is charged its maximum and not retried. HTTP 429 is
-rejected before processing: retried (3 attempts in all, backoff 2s then 8s) and charged nothing.
+rejected before processing: retried (6 attempts in all, waiting what the service's Retry-After
+header says, else 2s, 5s, 15s, 30s, 60s; no wait over 60s) and charged nothing. A call that was
+rate limited on every attempt raises CallFailed with rate_limited set, so callers can leave the
+question to be retried instead of scoring it.
 
 Contract: once a response with usage arrives, chat() always returns a ChatResult carrying that
 charge; it never raises afterwards. Callers tell outcomes apart by finish_reason ("stop",
@@ -27,8 +30,9 @@ from footnote.llm.tokens import count_input_tokens, response_format_payload
 
 API_VERSION = "2025-04-01-preview"
 TIMEOUT_S = 300
-MAX_ATTEMPTS = 3
-BACKOFF_S = (2.0, 8.0)
+MAX_ATTEMPTS = 6
+BACKOFF_S = (2.0, 5.0, 15.0, 30.0, 60.0)
+MAX_WAIT_S = 60.0
 # fields the SDK adds to its message objects that the API does not accept back
 _DROP_MESSAGE = ("annotations", "audio")
 
@@ -46,9 +50,21 @@ class Usage:
 
 
 class CallFailed(Exception):
-    def __init__(self, message: str, usage: Usage) -> None:
+    def __init__(self, message: str, usage: Usage, *, rate_limited: bool = False) -> None:
         super().__init__(message)
         self.usage = usage
+        self.rate_limited = rate_limited  # refused before processing on every attempt
+
+
+def _retry_wait(exc: openai.RateLimitError, attempt: int) -> float:
+    """Seconds to wait before the next try: the service's own figure when readable, capped."""
+    headers = exc.response.headers
+    for name, scale in (("retry-after-ms", 0.001), ("retry-after", 1.0)):
+        try:
+            return min(max(float(headers[name]) * scale, 0.0), MAX_WAIT_S)
+        except (KeyError, ValueError):
+            continue
+    return min(BACKOFF_S[attempt], MAX_WAIT_S)
 
 
 @dataclass(frozen=True)
@@ -157,9 +173,11 @@ class LLMClient:
             except openai.RateLimitError as exc:
                 if attempt + 1 == MAX_ATTEMPTS:
                     raise CallFailed(
-                        "rate limited on every attempt", Usage(0, 0, Decimal(0))
+                        "rate limited on every attempt",
+                        Usage(0, 0, Decimal(0)),
+                        rate_limited=True,
                     ) from exc
-                self._sleep(BACKOFF_S[attempt])
+                self._sleep(_retry_wait(exc, attempt))
             except openai.APIConnectionError as exc:  # includes timeouts
                 raise CallFailed(
                     f"no response ({type(exc).__name__}); charged the maximum",

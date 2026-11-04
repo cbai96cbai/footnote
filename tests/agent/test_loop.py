@@ -11,9 +11,9 @@ from footnote.agent.tools import Toolbox
 from footnote.answers import AgentAnswer
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS, MAX_CALLS
-from footnote.llm.client import ChatResult
+from footnote.llm.client import CallFailed, ChatResult, Usage
 from footnote.llm.tokens import count_input_tokens
-from footnote.prediction import Prediction
+from footnote.prediction import Prediction, is_retriable_error
 
 Q = AgentQuestion(
     "fb_1", "Acme", "ACME_2020_10K", "metrics-generated", "What was revenue in USD millions?"
@@ -236,3 +236,13 @@ def test_budget_stated_in_prompt_and_each_tool_result() -> None:
     assert client.calls[2][-1]["content"].endswith("[replies left: 6]")
     p, client = run([search(f"a{i}") for i in range(7)] + [submit(GOOD)])
     assert "last reply" in client.calls[7][-1]["content"]
+
+
+def test_rate_limited_call_is_a_retriable_error_charged_nothing() -> None:
+    limited = CallFailed(
+        "rate limited on every attempt", Usage(0, 0, Decimal(0)), rate_limited=True
+    )
+    p, _ = run([limited])
+    assert p.status == "error" and p.usage.cost == 0 and is_retriable_error(p)
+    p, _ = run([failed("0.5")])  # a timeout is an error that stays an error
+    assert p.status == "error" and not is_retriable_error(p)

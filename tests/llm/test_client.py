@@ -48,8 +48,8 @@ def ok(
     )
 
 
-def status_error(code: int) -> openai.APIStatusError:
-    resp = httpx.Response(code, request=REQ)
+def status_error(code: int, headers: dict[str, str] | None = None) -> openai.APIStatusError:
+    resp = httpx.Response(code, request=REQ, headers=headers)
     cls = openai.RateLimitError if code == 429 else openai.InternalServerError
     return cls("boom", response=resp, body=None)
 
@@ -114,17 +114,19 @@ def test_deployment_names_follow_settings() -> None:
 
 def test_charging_rules() -> None:
     maxc = call_max_cost(LIMITS["agent"], PRICES["gpt-5-mini"])
-    # 429, 429, 200 -> three attempts, only the usage is charged, backoff 2s then 8s
+    # 429, 429, 200 -> three attempts, only the usage is charged, backoff 2s then 5s
     sleeps: list[float] = []
     c, sdk = client([status_error(429), status_error(429), ok(pt=10, ct=10)], sleeps)
     r = c.chat(MSGS, deployment="footnote-agent", limits=LIMITS["agent"])
-    assert len(sdk.calls) == 3 and sleeps == [2, 8]
+    assert len(sdk.calls) == 3 and sleeps == [2, 5]
     assert r.usage.cost == Decimal("0.0000225") and not r.usage.charged_max
-    # three 429s -> failed, charged 0
-    c, sdk = client([status_error(429)] * 3)
+    # six 429s -> failed and marked rate limited, charged 0, five waits none over 60 s
+    sleeps = []
+    c, sdk = client([status_error(429)] * 6, sleeps)
     with pytest.raises(CallFailed) as e:
         c.chat(MSGS, deployment="footnote-agent", limits=LIMITS["agent"])
-    assert len(sdk.calls) == 3 and e.value.usage.cost == 0 and not e.value.usage.charged_max
+    assert len(sdk.calls) == 6 and e.value.usage.cost == 0 and not e.value.usage.charged_max
+    assert e.value.rate_limited and len(sleeps) == 5 and max(sleeps) <= 60
     # timeout, dropped connection, 500 -> charged the maximum, no retry
     for exc in (
         openai.APITimeoutError(request=REQ),
@@ -136,6 +138,28 @@ def test_charging_rules() -> None:
             c.chat(MSGS, deployment="footnote-agent", limits=LIMITS["agent"])
         assert len(sdk.calls) == 1
         assert e.value.usage.charged_max and e.value.usage.cost == maxc
+        assert not e.value.rate_limited
+
+
+def test_retry_after_headers_are_honored_and_capped() -> None:
+    sleeps: list[float] = []
+    script = [
+        status_error(429, {"retry-after-ms": "1500"}),
+        status_error(429, {"retry-after": "12"}),
+        status_error(429, {"retry-after": "600"}),
+        status_error(429, {"retry-after": "soon"}),  # unreadable: the default backoff
+        ok(),
+    ]
+    c, sdk = client(script, sleeps)
+    c.chat(MSGS, deployment="footnote-agent", limits=LIMITS["agent"])
+    assert sleeps == [1.5, 12, 60, 30]
+
+
+def test_other_rejections_are_not_rate_limited() -> None:
+    c, _ = client([status_error(404)])
+    with pytest.raises(CallFailed) as e:
+        c.chat(MSGS, deployment="footnote-agent", limits=LIMITS["agent"])
+    assert not e.value.rate_limited
 
 
 def test_missing_usage_on_success_is_charged_max() -> None:

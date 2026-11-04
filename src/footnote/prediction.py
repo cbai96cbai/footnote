@@ -10,6 +10,20 @@ from footnote.llm.client import Usage
 NO_USAGE = Usage(0, 0, Decimal(0))
 
 
+# A question the service refused before processing (HTTP 429 on every attempt) was never
+# answered by the system: its error step carries this reason and a resume runs it again.
+RATE_LIMITED = "rate_limited"
+
+
+def add_usage(a: Usage, b: Usage) -> Usage:
+    return Usage(
+        a.input_tokens + b.input_tokens,
+        a.output_tokens + b.output_tokens,
+        a.cost + b.cost,
+        a.charged_max or b.charged_max,
+    )
+
+
 @dataclass(frozen=True)
 class Step:
     tool: str
@@ -31,6 +45,13 @@ class Prediction:
     usage: Usage
     latency_s: float
     pages_read: list[int] = field(default_factory=list)
+
+
+def is_retriable_error(p: Prediction) -> bool:
+    """An error caused only by rate limiting: not a result, to be run again."""
+    return p.status == "error" and any(
+        s.tool == "error" and s.arguments.get("reason") == RATE_LIMITED for s in p.trace
+    )
 
 
 def usage_to_dict(u: Usage) -> dict[str, Any]:

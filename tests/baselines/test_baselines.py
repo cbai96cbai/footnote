@@ -13,6 +13,7 @@ from footnote.config import Settings
 from footnote.corpus.parse import Page
 from footnote.llm.client import CallFailed, ChatResult, Usage
 from footnote.llm.tokens import count_input_tokens
+from footnote.prediction import is_retriable_error
 
 Q = AgentQuestion("fb_1", "Acme", "ACME_2020_10K", "metrics-generated", "What was revenue?")
 GOOD = AgentAnswer(answer="12", final_value=None, declined=False, decline_reason=None, citations=[])
@@ -117,3 +118,15 @@ def test_no_docs_prompt_answers_from_knowledge_long_context_does_not() -> None:
     assert "from your own knowledge" in no_docs.USER_TEMPLATE
     assert "from your own knowledge" not in long_context.USER_TEMPLATE
     assert "from your own knowledge" not in long_context.INSTRUCTIONS
+
+
+def test_rate_limited_call_is_a_retriable_error_charged_nothing() -> None:
+    limited = CallFailed(
+        "rate limited on every attempt", Usage(0, 0, Decimal(0)), rate_limited=True
+    )
+    c = FakeClient([limited, res()])
+    p = no_docs.run(Q, c)  # type: ignore[arg-type]
+    assert len(c.calls) == 1 and p.status == "error" and p.usage.cost == 0
+    assert is_retriable_error(p)
+    c = FakeClient([CallFailed("timeout", Usage(0, 0, Decimal("0.5"), True))])
+    assert not is_retriable_error(no_docs.run(Q, c))  # type: ignore[arg-type]

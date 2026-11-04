@@ -9,7 +9,7 @@ from typing import Any
 from footnote.benchmark import AgentQuestion
 from footnote.eval.grade import Verdict
 from footnote.eval.stats import cluster_bootstrap
-from footnote.prediction import Prediction
+from footnote.prediction import Prediction, is_retriable_error
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RUBRIC = Path(__file__).with_name("rubric.md")
@@ -62,6 +62,7 @@ def build_summary(
     verified = [p for p in answered if p.verify_ok is not None]
     grader_errors = sum(is_grader_error(verdicts[q.id]) for q in questions)
     n_graded = n - grader_errors
+    retriable_errors = sum(is_retriable_error(p) for p in ps)
     ci = None
     if n_graded:
         _, lo, hi = cluster_bootstrap(outcomes_by_company(questions, verdicts))
@@ -75,7 +76,8 @@ def build_summary(
         "correct": correct,
         "n_graded": n_graded,
         "grader_errors": grader_errors,
-        "complete": grader_errors == 0,
+        "retriable_errors": retriable_errors,
+        "complete": grader_errors == 0 and retriable_errors == 0,
         "accuracy": correct / n_graded if n_graded else None,
         "ci95": ci,
         "coverage": len(answered) / n,

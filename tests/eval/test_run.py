@@ -14,10 +14,11 @@ from footnote.config import Settings
 from footnote.eval.gold import Gold
 from footnote.eval.grade_llm import GraderOutput
 from footnote.eval.identity import RunIdentityMismatch
+from footnote.eval.records import read_predictions
 from footnote.eval.registry import TestRunRefused
 from footnote.eval.run import run_eval
 from footnote.llm.client import CallFailed, ChatResult, Usage
-from footnote.prediction import Prediction
+from footnote.prediction import RATE_LIMITED, Prediction, Step, is_retriable_error
 from footnote.systems import register_system
 
 U = Usage(100, 20, Decimal("0.001"))
@@ -270,3 +271,61 @@ def test_missing_filing_pages_recorded_as_failed_verification(tmp_path: Path) ->
     run_eval("fake", "dev", "r1", **kw)
     rows = lines(tmp_path / "results" / "r1" / "predictions.jsonl")
     assert all(r["verify_ok"] is False and "unavailable" in r["verify_problems"][0] for r in rows)
+
+
+def limited(q: AgentQuestion) -> Prediction:
+    step = Step("error", {"reason": RATE_LIMITED}, "call failed: rate limited", U)
+    return replace(prediction(q, "declined"), answer=None, status="error", trace=[step])
+
+
+def test_rate_limited_questions_are_rerun_on_resume_other_errors_are_not(tmp_path: Path) -> None:
+    calls: list[str] = []
+    state = {"limited": True}
+
+    def runner(q: AgentQuestion, client: Any) -> Prediction:
+        calls.append(q.id)
+        if q.id == "q1" and state["limited"]:
+            return limited(q)
+        if q.id == "q2":
+            raise ValueError("boom")  # a real error: final
+        return prediction(q)
+
+    kw = setup(tmp_path, runner)
+    s = run_eval("fake", "dev", "r1", **kw)
+    assert s["retriable_errors"] == 1 and s["complete"] is False and s["errors"] == 2
+    state["limited"] = False
+    calls.clear()
+    s = run_eval("fake", "dev", "r1", **kw)
+    assert calls == ["q1"]
+    assert s["retriable_errors"] == 0 and s["complete"] is True and s["errors"] == 1
+    d = tmp_path / "results" / "r1"
+    preds = read_predictions(d)
+    assert preds["q1"].status == "answered" and not is_retriable_error(preds["q1"])
+    # the first attempt's cost is kept on the question
+    assert preds["q1"].usage.cost == U.cost * 2
+
+
+def test_still_rate_limited_resume_stays_incomplete_and_test_run_stays_started(
+    tmp_path: Path,
+) -> None:
+    kw = setup(tmp_path, lambda q, c: limited(q) if q.id == "q3" else prediction(q))
+    for _ in range(2):
+        s = run_eval("fake", "test", "t1", **kw)
+        assert s["retriable_errors"] == 1 and s["complete"] is False
+    reg = json.loads((tmp_path / "results" / "test_runs.json").read_text())
+    assert reg["fake"]["state"] == "started"
+    register_system("fake", lambda q, c: prediction(q), MAX_Q, {"version": "1"})
+    s = run_eval("fake", "test", "t1", **kw)
+    assert s["complete"] is True
+    reg = json.loads((tmp_path / "results" / "test_runs.json").read_text())
+    assert reg["fake"]["state"] == "completed"
+
+
+def test_raised_rate_limit_is_recorded_as_retriable(tmp_path: Path) -> None:
+    def runner(q: AgentQuestion, client: Any) -> Prediction:
+        raise CallFailed(
+            "rate limited on every attempt", Usage(0, 0, Decimal(0)), rate_limited=True
+        )
+
+    s = run_eval("fake", "dev", "r1", **setup(tmp_path, runner))
+    assert s["retriable_errors"] == 4 and s["complete"] is False and s["cost_usd"] < 0.02
