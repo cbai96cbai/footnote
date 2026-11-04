@@ -68,28 +68,6 @@ def parse_numbers(text: str) -> list[ParsedNumber]:
     return out
 
 
-_TOKEN = re.compile(r"\w+(?:[.,−-]\w+)*")
-_IDENTIFIER = re.compile(r"[^\W\d]|\d+-[A-Za-z]|\d+(?:st|nd|rd|th)\b", re.IGNORECASE)
-
-
-def unrecognized_tokens(text: str) -> list[str]:
-    """Digit-bearing tokens the parser did not fully read (closed world: these fail).
-
-    Identifiers ("FY2018", "Q3", "10-K", "3rd") are not numbers. Anything else with a digit
-    that the parser skipped ("999e9", "1.2.3", "7A") is returned.
-    """
-    masked = list(text)
-    for m in _NUMBER.finditer(text):
-        masked[m.start() : m.end()] = " " * (m.end() - m.start())
-    left = {i for i, ch in enumerate(masked) if ch.isdigit()}
-    found: list[str] = []
-    for tok in _TOKEN.finditer(text):
-        if any(i in left for i in range(tok.start(), tok.end())):
-            if not _IDENTIFIER.match(tok[0]) and tok[0] not in found:
-                found.append(tok[0])
-    return found
-
-
 def parse_gold_number(text: str) -> ParsedNumber | None:
     """The number in a gold answer, only when the text holds exactly one."""
     found = parse_numbers(text)

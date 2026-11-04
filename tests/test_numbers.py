@@ -7,7 +7,6 @@ from footnote.numbers import (
     is_valid_rounding,
     parse_gold_number,
     parse_numbers,
-    unrecognized_tokens,
 )
 
 
@@ -166,8 +165,3 @@ def test_leading_point_and_parenthesised_percent() -> None:
     p = parse_numbers("(0.5)%")[0]
     assert (p.value, p.decimals, p.percent) == (D("-0.5"), 1, True)
     assert parse_numbers("(5.2)%")[0].value == D("-5.2")
-
-
-def test_unrecognized_tokens_are_listed_identifiers_are_not() -> None:
-    assert unrecognized_tokens("999e9 and 1.2.3 and 7A") == ["999e9", "1.2.3", "7A"]
-    assert unrecognized_tokens("FY2018 Q3 10-K 3rd 1,234 $5.2 billion (5.2)% .5") == []

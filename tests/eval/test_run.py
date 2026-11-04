@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from footnote.answers import AgentAnswer
+from footnote.answers import AgentAnswer, Citation, FinalValue
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS, PRICES, call_max_cost
 from footnote.budget.tally import Tally
@@ -51,7 +51,11 @@ def prediction(q: AgentQuestion, status: str = "answered") -> Prediction:
         None
         if status == "declined"
         else AgentAnswer(
-            answer="a", final_value=None, declined=False, decline_reason=None, citations=[]
+            answer="a",
+            final_value=None,
+            declined=False,
+            decline_reason=None,
+            citations=[Citation(page_index=0, quote="page")],
         )
     )
     return Prediction(q.id, "fake", "1", ans, status, None, [], [], U, 0.5)  # type: ignore[arg-type]
@@ -243,7 +247,9 @@ def test_unverified_answers_are_verified_agent_ones_left_alone(tmp_path: Path) -
         if q.id == "q2":
             return prediction(q, "declined")
         assert p.answer is not None
-        bad = p.answer.model_copy(update={"answer": "It was 777.", "citations": []})
+        bad = p.answer.model_copy(
+            update={"final_value": FinalValue(value=Decimal(777), unit="usd")}  # type: ignore[arg-type]
+        )
         return replace(p, answer=bad) if q.id == "q3" else p
 
     kw = setup(tmp_path, runner)

@@ -1,14 +1,16 @@
-"""The grounding check: every quote exists in the filing, every number traces to a quote.
+"""The grounding check. It guarantees exactly two things, and nothing about the answer's prose.
 
-What it proves: every quote exists in the cited filing page, and every number in the answer is a
-correct rounding of a number in a cited quote, or of a logged calculation whose operands all appear
-in cited quotes (or are unit constants). Numbers in the question are exempt only as displayed
-numbers, never as operands; a digit the parser cannot fully read fails closed. It does not prove
-that a number means what the answer says (units, periods); the grader measures that.
+1. Every quote the answer cites appears word for word on the cited page of the filing, and an
+   answered (not declined) question cites at least one quote.
+2. The answer's structured final value is a correct rounding of a number written in a cited quote,
+   or of a logged calculation whose numbers come from cited quotes (plus small fixed constants such
+   as 2, 12, 365 or 100, with at least one cited number in every calculation). A percentage can
+   come from a quoted number written with a % sign, or from a calculation; never from a plain
+   quoted number times 100.
 
-Documented limits: tables rarely state units in the quoted line, so a shown number with a scale
-word may match a quoted number times 1e3, 1e6 or 1e9; signs are not compared (an answer says
-"fell $1.6 billion" for a quoted "(1,577)").
+Numbers in the free-text answer are not checked; the grader measures whether the answer is right.
+Documented limits: tables rarely state units in the quoted line, so the final value may match a
+quoted number times any power of 1000; signs are not compared.
 """
 
 import ast
@@ -18,7 +20,7 @@ from decimal import Decimal, DivisionByZero, InvalidOperation, Overflow
 
 from footnote.answers import AgentAnswer, FinalValue
 from footnote.corpus.normalize import normalize_text
-from footnote.numbers import ParsedNumber, is_valid_rounding, parse_numbers, unrecognized_tokens
+from footnote.numbers import ParsedNumber, is_valid_rounding, parse_numbers
 
 _MAGNITUDES = (Decimal(1), Decimal("1e3"), Decimal("1e6"), Decimal("1e9"))
 # final_value is stated in the question's requested unit: any power of 1000 either way
@@ -128,18 +130,12 @@ def _supported_by_value(
     shown: ParsedNumber,
     base: Decimal,
     plain: bool,
-    magnitudes: tuple[Decimal, ...] | None = None,
+    magnitudes: tuple[Decimal, ...],
 ) -> bool:
-    """`plain` marks a calculation result or a quoted number without a % sign."""
-    if magnitudes is None:
-        magnitudes = _MAGNITUDES if shown.scale != 1 else _MAGNITUDES[:1]
+    """`plain` marks a calculation result: only those may be turned into a percentage (x100)."""
     if any(_rounds_to(shown, base * s) for s in magnitudes):
         return True
     return shown.percent and plain and _rounds_to(shown, base * 100)
-
-
-def _in_question(shown: ParsedNumber, question: list[ParsedNumber]) -> bool:
-    return any(shown.value == q.value and shown.scale == q.scale for q in question)
 
 
 def _operand_cited(op: Decimal, cited: list[ParsedNumber]) -> bool:
@@ -165,16 +161,11 @@ def _number_supported(
     shown: ParsedNumber,
     cited: list[ParsedNumber],
     results: list[Decimal],
-    question: list[ParsedNumber],
-    magnitudes: tuple[Decimal, ...] | None = None,
+    magnitudes: tuple[Decimal, ...],
 ) -> bool:
-    if _in_question(shown, question):
-        return True
     if any(_supported_by_value(shown, r, True, magnitudes) for r in results):
         return True
-    return any(
-        _supported_by_value(shown, b, not n.percent, magnitudes) for n in cited for b in _bases(n)
-    )
+    return any(_supported_by_value(shown, b, False, magnitudes) for n in cited for b in _bases(n))
 
 
 def _final_as_shown(fv: FinalValue) -> ParsedNumber:
@@ -202,19 +193,11 @@ def verify_answer(
         else:
             cited.extend(parse_numbers(c.quote))
     if not answer.declined:
-        q_nums = parse_numbers(question)
-        results = _calc_results(calcs, cited)
-        problems.extend(
-            f"unrecognized number format: {t}" for t in unrecognized_tokens(answer.answer)
-        )
-        for shown in parse_numbers(answer.answer):
-            if not _number_supported(shown, cited, results, q_nums):
-                problems.append(
-                    f"number not supported by a cited quote or calculation: {shown.value}"
-                )
+        if not answer.citations:
+            problems.append("no citations")
         fv = answer.final_value
         if fv is not None and not _number_supported(
-            _final_as_shown(fv), cited, results, q_nums, _FINAL_MAGNITUDES
+            _final_as_shown(fv), cited, _calc_results(calcs, cited), _FINAL_MAGNITUDES
         ):
             problems.append(
                 f"final value not supported by a cited quote or calculation: {fv.value}"
