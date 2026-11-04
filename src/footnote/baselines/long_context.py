@@ -12,7 +12,7 @@ from footnote.baselines.common import (
 )
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS
-from footnote.corpus.parse import Page, load_pages
+from footnote.corpus.parse import PARSER_VERSION, Page, load_pages
 from footnote.llm.client import LLMClient
 from footnote.llm.tokens import count_input_tokens, count_text_tokens
 from footnote.prediction import NO_USAGE, Prediction, Step
@@ -86,5 +86,6 @@ SPEC = register_system(
     FAMILY,
     run,
     max_cost_per_question(LIMITS["long_context"]),
-    family_config(FAMILY, "long_context", USER_TEMPLATE, PACKING),
+    family_config(FAMILY, "long_context", USER_TEMPLATE, PACKING)
+    | {"parser_version": PARSER_VERSION},
 )

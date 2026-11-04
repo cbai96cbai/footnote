@@ -6,6 +6,7 @@ from typing import Literal, get_args
 from footnote.eval.gold import Gold
 from footnote.eval.grade import Verdict
 from footnote.eval.summary import is_grader_error
+from footnote.eval.verify_pass import SELF_VERIFYING_SYSTEMS
 from footnote.prediction import Prediction
 
 FailureType = Literal[
@@ -15,14 +16,17 @@ FAILURE_TYPES: tuple[str, ...] = get_args(FailureType)
 
 
 def failure_type(pred: Prediction, verdict: Verdict, gold: Gold) -> FailureType | None:
-    """The first matching cause; None for a correct answer or a grader error (not failures)."""
+    """The first matching cause; None for a correct answer or a grader error (not failures).
+
+    "unsupported" applies only to a system that checks its own answers; a baseline's eval-time
+    check is informational and never the cause."""
     if verdict.label == "correct" or is_grader_error(verdict):
         return None
     if pred.status == "error":
         return "error"
     if pred.status == "declined" or verdict.label == "declined":
         return "declined"
-    if pred.verify_ok is False:
+    if pred.verify_ok is False and pred.system in SELF_VERIFYING_SYSTEMS:
         return "unsupported"
     if not any(e.page_index in pred.pages_read for e in gold.evidence):
         return "retrieval_miss"
@@ -57,7 +61,7 @@ def select_for_labeling(
 
 REASONS: dict[str, str] = {
     "declined": "the system declined to answer",
-    "unsupported": "the answer failed its own citation check",
+    "unsupported": "the system's own citation check rejected the answer",
     "retrieval_miss": "none of the gold evidence pages was read",
     "wrong_number": "the final number does not match the gold number",
     "reasoning": "the right pages were read but the answer was graded incorrect",

@@ -37,3 +37,10 @@ def test_word_coverage_keeps_number_formats_whole() -> None:
 
 def test_word_coverage_empty_gold_is_zero() -> None:
     assert word_coverage("$ - %", "anything") == 0.0
+
+
+def test_extractor_hyphen_marks_match_a_plain_hyphen() -> None:
+    assert normalize_text("forward\x02looking") == normalize_text("forward-looking")
+    assert normalize_text("Non\u00adGAAP") == "non-gaap"
+    assert normalize_text("2019\x022020") == "2019-2020"
+    assert normalize_text("reve\x02\nnue") == "revenue"

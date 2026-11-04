@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from decimal import Decimal, DivisionByZero, InvalidOperation, Overflow
 
 from footnote.answers import AgentAnswer, FinalValue
-from footnote.corpus.normalize import normalize_text
+from footnote.corpus.normalize import map_hyphen_marks, normalize_text
 from footnote.numbers import ParsedNumber, is_valid_rounding, parse_numbers
 
 _MAGNITUDES = (Decimal(1), Decimal("1e3"), Decimal("1e6"), Decimal("1e9"))
@@ -202,7 +202,7 @@ def verify_answer(
         elif not quote_in_page(c.quote, text):
             problems.append(f"quote not found on page {c.page_index}: {c.quote[:80]!r}")
         else:
-            cited.extend(parse_numbers(c.quote))
+            cited.extend(parse_numbers(map_hyphen_marks(c.quote)))
     if not answer.declined:
         if not answer.citations:
             problems.append("no citations")

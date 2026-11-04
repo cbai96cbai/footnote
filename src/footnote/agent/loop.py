@@ -16,7 +16,7 @@ from footnote.agent.prompts import (
     TOOLS,
     USER_TEMPLATE,
 )
-from footnote.agent.tools import SearchIndex, Toolbox, ToolError, cap
+from footnote.agent.tools import SearchIndex, Toolbox, ToolError, cap, trace_args
 from footnote.answers import AgentAnswer
 from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS, MAX_CALLS
@@ -214,7 +214,7 @@ class _Agent:
     ) -> None:
         self.messages.append({"role": "tool", "tool_call_id": call["id"], "content": content})
         self.summaries[call["id"]] = summary
-        self.trace.append(Step(name, args, cap(summary), usage))
+        self.trace.append(Step(name, trace_args(args), cap(summary), usage))
 
     def _tool_error(
         self, call: dict[str, Any], name: str, args: dict[str, Any], message: str, usage: Usage

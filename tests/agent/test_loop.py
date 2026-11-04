@@ -246,3 +246,12 @@ def test_rate_limited_call_is_a_retriable_error_charged_nothing() -> None:
     assert p.status == "error" and p.usage.cost == 0 and is_retriable_error(p)
     p, _ = run([failed("0.5")])  # a timeout is an error that stays an error
     assert p.status == "error" and not is_retriable_error(p)
+
+
+def test_long_quotes_in_submit_arguments_are_cut_in_the_trace() -> None:
+    long_quote = "Total revenue was $1,234 million " + "x" * 600
+    args = {**GOOD, "citations": [{"page_index": 1, "quote": long_quote}]}
+    p, _ = run([search(), submit(args), submit(GOOD, "t")])
+    stored = p.trace[1].arguments["citations"][0]["quote"]
+    assert len(stored) == 400 and stored.endswith("…") and stored[:-1] == long_quote[:399]
+    assert p.trace[2].arguments["citations"][0]["quote"] == GOOD["citations"][0]["quote"]

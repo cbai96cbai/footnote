@@ -22,7 +22,7 @@ from footnote.budget.limits import LIMITS, MAX_CALLS, PRICES, call_max_cost
 from footnote.corpus.parse import load_pages
 from footnote.llm.client import LLMClient
 from footnote.prediction import NO_USAGE, Prediction, Step
-from footnote.retrieval.index import DocIndex
+from footnote.retrieval.index import DocIndex, retrieval_settings
 from footnote.systems import register_system
 
 
@@ -69,6 +69,7 @@ CONFIG: dict[str, Any] = {
         "trimming": "oldest tool results are replaced by their summaries until the call fits",
     },
     "tools": TOOLS,
+    "retrieval": retrieval_settings(),
 }
 
 SPEC = register_system(

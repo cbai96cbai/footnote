@@ -329,3 +329,10 @@ def test_raised_rate_limit_is_recorded_as_retriable(tmp_path: Path) -> None:
 
     s = run_eval("fake", "dev", "r1", **setup(tmp_path, runner))
     assert s["retriable_errors"] == 4 and s["complete"] is False and s["cost_usd"] < 0.02
+
+
+def test_no_docs_system_is_never_verified(tmp_path: Path) -> None:
+    kw = setup(tmp_path, lambda q, c: replace(prediction(q), system="no-docs"))
+    run_eval("fake", "dev", "r2", **kw)
+    rows = lines(tmp_path / "results" / "r2" / "predictions.jsonl")
+    assert rows and all(r["verify_ok"] is None and r["verify_problems"] == [] for r in rows)

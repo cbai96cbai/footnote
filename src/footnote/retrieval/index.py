@@ -29,6 +29,19 @@ RRF_K = 60
 _WORD = re.compile(r"[a-z0-9]+")
 
 
+def retrieval_settings() -> dict[str, Any]:
+    """Everything that changes which passages a search can return, for a registered config."""
+    return {
+        "parser_version": PARSER_VERSION,
+        "chunker_version": CHUNKER_VERSION,
+        "max_tokens": MAX_TOKENS,
+        "overlap_tokens": OVERLAP_TOKENS,
+        "embedding_model": FastEmbedder.model_name,
+        "fastembed_version": FastEmbedder.library_version,
+        "rrf_k": RRF_K,
+    }
+
+
 @dataclass(frozen=True)
 class ScoredPassage:
     passage: Passage

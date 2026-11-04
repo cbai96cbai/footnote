@@ -7,6 +7,7 @@ from footnote.eval.grade import Verdict
 from footnote.eval.stats import cluster_bootstrap
 from footnote.eval.summary import is_grader_error
 
+LABELS = ("correct", "incorrect")
 AI_LABELER_PREFIXES = ("claude-", "gpt-")
 
 
@@ -40,6 +41,9 @@ def grader_agreement(
     reference-incorrect items); false negative = the reverse (over reference-correct items).
     `reference` is "human" only if every label's labeler is a person, otherwise "ai".
     """
+    bad = sorted({lab["label"] for lab in labels} - set(LABELS))
+    if bad:
+        raise ValueError(f"labels must be 'correct' or 'incorrect', got: {bad}")
     missing = sorted({lab["question_id"] for lab in labels} - companies.keys())
     if missing:
         raise ValueError(f"no company for labeled question ids: {missing}")

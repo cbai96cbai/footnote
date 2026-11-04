@@ -13,7 +13,7 @@ from footnote.benchmark import AgentQuestion
 from footnote.budget.limits import LIMITS
 from footnote.llm.client import LLMClient
 from footnote.prediction import NO_USAGE, Prediction, Step
-from footnote.retrieval.index import DocIndex, ScoredPassage
+from footnote.retrieval.index import DocIndex, ScoredPassage, retrieval_settings
 from footnote.systems import register_system
 
 FAMILY = "plain-retrieval"
@@ -69,5 +69,5 @@ SPEC = register_system(
     run,
     max_cost_per_question(LIMITS["plain_retrieval"]),
     family_config(FAMILY, "plain_retrieval", USER_TEMPLATE, PACKING)
-    | {"retrieval": {"k": K, "query": "the question text"}},
+    | {"retrieval": {"k": K, "query": "the question text"} | retrieval_settings()},
 )

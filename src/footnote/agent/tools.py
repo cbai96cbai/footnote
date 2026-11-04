@@ -33,6 +33,26 @@ def cap(text: str, limit: int = SUMMARY_CHARS) -> str:
     return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
+MAX_TRACE_QUOTE_CHARS = 400
+
+
+def trace_args(value: Any) -> Any:
+    """Tool-call arguments as stored in a committed trace: every "quote" string (the model's
+    citations in submit_answer) is cut to at most 400 characters, ending in an ellipsis."""
+    if isinstance(value, dict):
+        return {
+            k: (
+                v[: MAX_TRACE_QUOTE_CHARS - 1] + "…"
+                if k == "quote" and isinstance(v, str) and len(v) > MAX_TRACE_QUOTE_CHARS
+                else trace_args(v)
+            )
+            for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [trace_args(v) for v in value]
+    return value
+
+
 def cut_to_tokens(text: str, max_tokens: int) -> tuple[str, bool]:
     if count_text_tokens(text) <= max_tokens:
         return text, False

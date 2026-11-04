@@ -68,3 +68,10 @@ def test_missing_company_raises() -> None:
             [lab("a", "correct", "me"), lab("b", "correct", "me")],
             companies={"a": "X"},
         )
+
+
+def test_agreement_rejects_labels_other_than_correct_or_incorrect() -> None:
+    verdicts = {"a": v("a", "correct")}
+    for bad in ("Correct", "partial", ""):
+        with pytest.raises(ValueError, match="'correct' or 'incorrect'"):
+            grader_agreement(verdicts, [lab("a", bad, "camellia")], companies={"a": "X"})

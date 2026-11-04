@@ -220,3 +220,18 @@ def test_percent_and_ratio_ignore_the_quoted_scale_word() -> None:
     assert not fv_check("1200000", "percent", q, page=page)[0]
     assert fv_check("1200000", "usd", q, page=page)[0]
     assert fv_check("1.2", "ratio", q, page=page)[0]
+
+
+def test_quote_with_plain_hyphen_matches_extractor_hyphen_mark() -> None:
+    page = "Regulation S\x02T and forward\x02looking statements, Non\u00adGAAP measures"
+    assert quote_in_page("Regulation S-T and forward-looking statements", page)
+    assert quote_in_page("Non-GAAP measures", page)
+    assert quote_in_page("forward\x02looking statements", page)
+
+
+def test_number_in_quote_with_hyphen_mark_is_parsed_like_a_plain_hyphen() -> None:
+    page = "Fiscal 2019\x022020 net sales were 1,577"
+    for quote in ("2019\x022020 net sales were 1,577", "2019-2020 net sales were 1,577"):
+        assert fv_check("1577", "usd", [quote], page=page)[0]
+    # the mark between digits must not glue them into one number
+    assert not fv_check("20192020", "usd", ["2019\x022020 net sales"], page=page)[0]

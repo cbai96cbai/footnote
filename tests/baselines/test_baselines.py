@@ -130,3 +130,38 @@ def test_rate_limited_call_is_a_retriable_error_charged_nothing() -> None:
     assert is_retriable_error(p)
     c = FakeClient([CallFailed("timeout", Usage(0, 0, Decimal("0.5"), True))])
     assert not is_retriable_error(no_docs.run(Q, c))  # type: ignore[arg-type]
+
+
+def test_config_hash_changes_with_every_retrieval_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    from footnote.agent import system as agent_system
+    from footnote.baselines import plain_retrieval
+    from footnote.corpus import parse
+    from footnote.retrieval import index as index_mod
+    from footnote.retrieval.embed import FastEmbedder
+    from footnote.systems import hash_config
+
+    def hashes() -> tuple[str, str]:
+        s = index_mod.retrieval_settings()
+        return (
+            hash_config({**agent_system.CONFIG, "retrieval": s}),
+            hash_config({**plain_retrieval.SPEC.config, "retrieval": {"k": 8, **s}}),
+        )
+
+    base = hashes()
+    changes = [
+        (index_mod, "CHUNKER_VERSION", "99"),
+        (index_mod, "MAX_TOKENS", 351),
+        (index_mod, "OVERLAP_TOKENS", 51),
+        (index_mod, "RRF_K", 61),
+        (index_mod, "PARSER_VERSION", "pdfium-99"),
+        (FastEmbedder, "model_name", "other/model"),
+        (FastEmbedder, "library_version", "0.0.1"),
+    ]
+    for obj, name, value in changes:
+        with monkeypatch.context() as m:
+            m.setattr(obj, name, value)
+            assert all(a != b for a, b in zip(hashes(), base, strict=True)), name
+    # both configs publish what they read
+    assert agent_system.CONFIG["retrieval"] == index_mod.retrieval_settings()
+    assert plain_retrieval.SPEC.config["retrieval"]["chunker_version"] == "1"
+    assert long_context.SPEC.config["parser_version"] == parse.PARSER_VERSION

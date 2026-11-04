@@ -48,3 +48,14 @@ def test_unknown_tool_and_bad_search_arguments() -> None:
     ):
         with pytest.raises(ToolError):
             box().run(name, args)
+
+
+def test_trace_args_cuts_only_long_quote_strings() -> None:
+    from footnote.agent.tools import trace_args
+
+    long = "q" * 500
+    args = {"query": long, "citations": [{"page_index": 1, "quote": long}, {"quote": "short"}]}
+    out = trace_args(args)
+    assert out["query"] == long and out["citations"][1]["quote"] == "short"
+    assert len(out["citations"][0]["quote"]) == 400 and out["citations"][0]["quote"][-1] == "…"
+    assert args["citations"][0]["quote"] == long  # the input is not changed

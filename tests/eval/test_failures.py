@@ -12,11 +12,14 @@ from footnote.prediction import NO_USAGE, Prediction
 
 
 def pred(
-    status: str = "answered", verify_ok: bool | None = True, pages: list[int] | None = None
+    status: str = "answered",
+    verify_ok: bool | None = True,
+    pages: list[int] | None = None,
+    system: str = "agent",
 ) -> Prediction:
     return Prediction(
         "q",
-        "s",
+        system,
         "1",
         None,
         status,  # type: ignore[arg-type]
@@ -52,6 +55,21 @@ def test_failure_type_rules() -> None:
     # correct answers and grader errors are not failures
     assert failure_type(pred(verify_ok=False), verdict("correct"), GOLD) is None
     assert failure_type(pred(), verdict("error", "llm"), GOLD) is None
+
+
+def test_unsupported_only_for_systems_that_verify_themselves() -> None:
+    for system in ("long-context", "plain-retrieval", "no-docs"):
+        # the eval-time check is informational: the other rules decide the type
+        failed = pred(verify_ok=False, system=system)
+        assert failure_type(failed, verdict("incorrect", "numeric"), GOLD) == "wrong_number"
+        assert failure_type(failed, verdict("incorrect"), GOLD) == "reasoning"
+        assert (
+            failure_type(pred(verify_ok=False, pages=[], system=system), verdict("incorrect"), GOLD)
+            == "retrieval_miss"
+        )
+        assert failure_type(pred(verify_ok=None, system=system), verdict("incorrect"), GOLD) == (
+            "reasoning"
+        )
 
 
 def test_labeling_sample_stratified() -> None:
