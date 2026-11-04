@@ -163,3 +163,41 @@ def test_free_text_numbers_do_not_affect_the_result() -> None:
     text = "In USD999, FY2099, 999th, 999e9 and (0.5) percent."
     assert fv_check("1577", "usd", ["Net sales 1,577"], text=text)[0]
     assert fv_check("1577", "usd", ["Net sales 1,577"], text="Sales were 12.")[0]
+
+
+def test_units_limit_the_scale_a_quoted_number_may_take() -> None:
+    assert not fv_check("654", "percent", ["Rate 0.654"], page="Rate 0.654")[0]
+    assert not fv_check("1.6", "percent", ["Net sales 1,577"])[0]
+    assert not fv_check("1.58", "ratio", ["Net sales 1,577"])[0]
+    assert not fv_check("65.4", "usd", ["Rate 65.4%"], page="Rate 65.4%")[0]
+    assert not fv_check("65.4", "count", ["Rate 65.4%"], page="Rate 65.4%")[0]
+    assert fv_check("65.4", "percent", ["Rate 65.4"], page="Rate 65.4")[0]
+    assert fv_check("65.4", "percent", ["Rate 65.4%"], page="Rate 65.4%")[0]
+    assert fv_check("1.6", "usd", ["Net sales 1,577"])[0]
+    assert fv_check("1577", "ratio", ["Net sales 1,577"])[0]
+
+
+def test_percent_from_a_calculation_result_times_100() -> None:
+    calc = evaluate_expression("1018/1557")
+    quotes = ["gross profit 1,018", "revenue 1,557"]
+    assert fv_check("65.4", "percent", quotes, [calc])[0]
+    assert not fv_check("65.4", "ratio", quotes, [calc])[0]
+    assert not fv_check("65.4", "usd", quotes, [calc])[0]
+
+
+def test_zero_is_supported_only_by_zero() -> None:
+    assert not fv_check("0", "usd", ["Net sales 1,577"])[0]
+    assert not fv_check("0", "percent", ["Net sales 1,577"])[0]
+    assert fv_check("0", "usd", ["Net sales 0"], page="Net sales 0")[0]
+
+
+def test_question_year_is_not_an_operand_even_beside_a_cited_number() -> None:
+    calc = evaluate_expression("1577+2020")
+    ok, _ = fv_check("3597", "usd", ["Net sales 1,577"], [calc], question="In 2020?")
+    assert not ok
+
+
+def test_extreme_final_values_are_reported_not_raised() -> None:
+    for v in ("1E-90", "1E+90", "-1E+90"):
+        ok, problems = fv_check(v, "usd", ["Net sales 1,577"])
+        assert not ok and "final value out of range" in problems

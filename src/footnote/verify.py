@@ -4,13 +4,18 @@
    answered (not declined) question cites at least one quote.
 2. The answer's structured final value is a correct rounding of a number written in a cited quote,
    or of a logged calculation whose numbers come from cited quotes (plus small fixed constants such
-   as 2, 12, 365 or 100, with at least one cited number in every calculation). A percentage can
-   come from a quoted number written with a % sign, or from a calculation; never from a plain
-   quoted number times 100.
+   as 2, 12, 365 or 100, with at least one cited number in every calculation). Units:
+   - usd, count and other: the value may be the quoted number times 1, 1,000, 1,000,000 or
+     1,000,000,000 (tables rarely state their unit in the quoted line), either direction.
+   - percent and ratio: the value must match the quoted number as written. A percent may also be a
+     calculation result times 100 (1018/1557 gives 65.4), never a quoted number times 100.
+   - a quoted number written with a % sign supports only a percent value; a plain table cell such
+     as "65.4" may support 65.4 percent.
+   - a value of zero is supported only by a source that is zero, never by a tiny number that
+     rounds to zero.
+   Signs are not compared. A final value with an absurd size is reported as out of range.
 
 Numbers in the free-text answer are not checked; the grader measures whether the answer is right.
-Documented limits: tables rarely state units in the quoted line, so the final value may match a
-quoted number times any power of 1000; signs are not compared.
 """
 
 import ast
@@ -23,11 +28,13 @@ from footnote.corpus.normalize import normalize_text
 from footnote.numbers import ParsedNumber, is_valid_rounding, parse_numbers
 
 _MAGNITUDES = (Decimal(1), Decimal("1e3"), Decimal("1e6"), Decimal("1e9"))
-# final_value is stated in the question's requested unit: any power of 1000 either way
+# usd, count and other values are stated in the question's requested scale: any power of 1000
 # constants a calculation may use without a citation: averages, annualizing, day counts, units
 _UNIT_CONSTANTS = frozenset(
     Decimal(n) for n in (*range(1, 13), 360, 365, 100, 1000, 1000000, 1000000000)
 )
+_SCALED_UNITS = ("usd", "count", "other")
+_MAX_FINAL_EXPONENT = 30
 _FINAL_MAGNITUDES = tuple(Decimal(10) ** e for e in range(-9, 10, 3))
 MAX_QUOTE_CHARS = 400  # the site's excerpt cap; a longer quote could "support" a whole page
 _MAX_POWER = 10
@@ -123,19 +130,15 @@ def _bases(n: ParsedNumber) -> list[Decimal]:
 
 
 def _rounds_to(shown: ParsedNumber, source: Decimal) -> bool:
+    if shown.value == 0 and source != 0:
+        return False  # a tiny nonzero number rounding to zero supports nothing
     return is_valid_rounding(shown, source) or is_valid_rounding(shown, -source)
 
 
 def _supported_by_value(
-    shown: ParsedNumber,
-    base: Decimal,
-    plain: bool,
-    magnitudes: tuple[Decimal, ...],
+    shown: ParsedNumber, base: Decimal, magnitudes: tuple[Decimal, ...]
 ) -> bool:
-    """`plain` marks a calculation result: only those may be turned into a percentage (x100)."""
-    if any(_rounds_to(shown, base * s) for s in magnitudes):
-        return True
-    return shown.percent and plain and _rounds_to(shown, base * 100)
+    return any(_rounds_to(shown, base * s) for s in magnitudes)
 
 
 def _operand_cited(op: Decimal, cited: list[ParsedNumber]) -> bool:
@@ -158,20 +161,27 @@ def _calc_results(calcs: list[Calc], cited: list[ParsedNumber]) -> list[Decimal]
 
 
 def _number_supported(
-    shown: ParsedNumber,
-    cited: list[ParsedNumber],
-    results: list[Decimal],
-    magnitudes: tuple[Decimal, ...],
+    shown: ParsedNumber, unit: str, cited: list[ParsedNumber], results: list[Decimal]
 ) -> bool:
-    if any(_supported_by_value(shown, r, True, magnitudes) for r in results):
+    scaled = unit in _SCALED_UNITS
+    magnitudes = _FINAL_MAGNITUDES if scaled else (Decimal(1),)
+    if any(_supported_by_value(shown, r, magnitudes) for r in results):
         return True
-    return any(_supported_by_value(shown, b, False, magnitudes) for n in cited for b in _bases(n))
+    if unit == "percent" and any(_rounds_to(shown, r * 100) for r in results):
+        return True
+    # a quoted number with a % sign supports only a percent value
+    return any(
+        _supported_by_value(shown, b, magnitudes)
+        for n in cited
+        if unit == "percent" or not n.percent
+        for b in _bases(n)
+    )
 
 
 def _final_as_shown(fv: FinalValue) -> ParsedNumber:
     exponent = fv.value.as_tuple().exponent
     decimals = max(0, -exponent) if isinstance(exponent, int) else 0
-    return ParsedNumber(fv.value, decimals, fv.unit == "percent", Decimal(1))
+    return ParsedNumber(fv.value, decimals, False, Decimal(1))
 
 
 def verify_answer(
@@ -196,10 +206,28 @@ def verify_answer(
         if not answer.citations:
             problems.append("no citations")
         fv = answer.final_value
-        if fv is not None and not _number_supported(
-            _final_as_shown(fv), cited, _calc_results(calcs, cited), _FINAL_MAGNITUDES
-        ):
-            problems.append(
-                f"final value not supported by a cited quote or calculation: {fv.value}"
-            )
+        if fv is not None:
+            problems.extend(_final_value_problems(fv, cited, calcs))
     return (not problems, problems)
+
+
+def _final_value_problems(
+    fv: FinalValue, cited: list[ParsedNumber], calcs: list[Calc]
+) -> list[str]:
+    exponent = fv.value.as_tuple().exponent
+    if (
+        not fv.value.is_finite()
+        or not isinstance(exponent, int)
+        or abs(exponent) > _MAX_FINAL_EXPONENT
+        or fv.value.adjusted() > _MAX_FINAL_EXPONENT
+    ):
+        return ["final value out of range"]
+    try:
+        supported = _number_supported(
+            _final_as_shown(fv), fv.unit, cited, _calc_results(calcs, cited)
+        )
+    except InvalidOperation:
+        return ["final value out of range"]
+    if supported:
+        return []
+    return [f"final value not supported by a cited quote or calculation: {fv.value}"]
