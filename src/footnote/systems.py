@@ -11,6 +11,9 @@ from footnote.benchmark import AgentQuestion
 from footnote.llm.client import LLMClient
 from footnote.prediction import Prediction
 
+# A runner should catch its own failures and return an error Prediction carrying the usage it
+# accumulated. If it raises instead, the eval run records an error and charges the system's
+# max_cost_per_question (actual spend is unknown): a conservative fallback, not the normal path.
 SystemRunner = Callable[[AgentQuestion, LLMClient], Prediction]
 
 

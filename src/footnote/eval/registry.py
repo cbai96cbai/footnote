@@ -37,21 +37,30 @@ def start_test_run(
         raise TestRunRefused("--rerun-test needs --reason TEXT")
     reg = _load(results_root)
     prior = reg.get(family)
-    if prior and not (prior["state"] == "started" and prior["run_id"] == run_id):
-        if not rerun:
-            raise TestRunRefused(
-                f"{family}: test run {prior['run_id']} is {prior['state']}; "
-                "a family's test run happens once (use --rerun-test --reason TEXT)"
-            )
+    resuming = bool(
+        prior
+        and prior["state"] == "started"
+        and prior["run_id"] == run_id
+        and prior["config_hash"] == config_hash
+    )
+    if prior and not resuming and not rerun:
+        what = (
+            f"run {run_id} started with a different configuration"
+            if prior["state"] == "started" and prior["run_id"] == run_id
+            else f"test run {prior['run_id']} is {prior['state']}"
+        )
+        raise TestRunRefused(
+            f"{family}: {what}; a family's test run happens once (use --rerun-test --reason TEXT)"
+        )
     entry: dict[str, Any] = {"config_hash": config_hash, "run_id": run_id, "state": "started"}
-    if prior and not (prior["state"] == "started" and prior["run_id"] == run_id):
+    if prior and not resuming:
         entry["previous"] = [
             *prior.get("previous", []),
             {k: v for k, v in prior.items() if k != "previous"},
         ]
         entry["rerun_reason"] = reason
     elif prior:
-        entry = {**prior, "config_hash": config_hash}
+        entry = dict(prior)
     reg[family] = entry
     _save(results_root, reg)
     return entry.get("rerun_reason")

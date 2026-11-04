@@ -4,6 +4,7 @@ import importlib
 import importlib.util
 import json
 import time
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -22,7 +23,7 @@ from footnote.eval.records import (
 )
 from footnote.eval.registry import complete_test_run, start_test_run
 from footnote.eval.split import SplitName, load_split
-from footnote.eval.summary import build_summary
+from footnote.eval.summary import build_summary, is_grader_error
 from footnote.llm.client import LLMClient, Usage
 from footnote.prediction import Prediction, Step
 from footnote.systems import SystemSpec, get_system
@@ -40,8 +41,8 @@ def register_known_systems() -> None:
 def _error_prediction(
     spec: SystemSpec, q: AgentQuestion, exc: Exception, started: float
 ) -> Prediction:
-    usage = getattr(exc, "usage", None)
-    usage = usage if isinstance(usage, Usage) else NO_USAGE
+    # what the runner spent before raising is unknown: charge the system's per-question maximum
+    usage = Usage(0, 0, spec.max_cost_per_question, True)
     step = Step("error", {}, f"{type(exc).__name__}: {exc}", usage)
     return Prediction(
         q.id,
@@ -74,6 +75,18 @@ def _grade(
         usage = getattr(exc, "usage", None)
         usage = usage if isinstance(usage, Usage) else NO_USAGE
         return Verdict(q.id, "error", "llm", f"{type(exc).__name__}: {exc}", usage)
+
+
+def _with_earlier_usage(v: Verdict, earlier: Usage) -> Verdict:
+    """A re-graded verdict keeps the cost of the failed grading before it."""
+    u = v.usage
+    total = Usage(
+        u.input_tokens + earlier.input_tokens,
+        u.output_tokens + earlier.output_tokens,
+        u.cost + earlier.cost,
+        u.charged_max or earlier.charged_max,
+    )
+    return replace(v, usage=total)
 
 
 def _selected(
@@ -110,7 +123,7 @@ def run_eval(
     gold = gold if gold is not None else load_gold()
     run_dir = results_root / run_id
     preds, verdicts = read_predictions(run_dir), read_verdicts(run_dir)
-    remaining = [q for q in selected if q.id not in verdicts]
+    remaining = [q for q in selected if q.id not in verdicts or is_grader_error(verdicts[q.id])]
     grader_price = client.price_for(settings.grader_deployment)
     per_question = spec.max_cost_per_question + 2 * call_max_cost(LIMITS["grader"], grader_price)
     admitted = per_question * len(remaining)
@@ -122,9 +135,11 @@ def run_eval(
             preds[q.id] = _predict(spec, q, client)
             append_prediction(run_dir, preds[q.id])
             spent += preds[q.id].usage.cost
-        verdicts[q.id] = _grade(q, gold[q.id], preds[q.id], client, settings.grader_deployment)
+        new = _grade(q, gold[q.id], preds[q.id], client, settings.grader_deployment)
+        spent += new.usage.cost
+        old = verdicts.get(q.id)
+        verdicts[q.id] = new if old is None else _with_earlier_usage(new, old.usage)
         append_verdict(run_dir, verdicts[q.id])
-        spent += verdicts[q.id].usage.cost
     if remaining:
         tally.settle(run_id, spent)  # an earlier crashed admission of this run stays at its maximum
     summary = build_summary(spec, split, selected, preds, verdicts)
@@ -133,6 +148,6 @@ def run_eval(
     if rerun_reason:
         summary["rerun_reason"] = rerun_reason
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=1) + "\n", encoding="utf-8")
-    if split == "test":
+    if split == "test" and summary["complete"]:
         complete_test_run(results_root, family, run_id)
     return summary

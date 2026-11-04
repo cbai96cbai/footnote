@@ -13,7 +13,7 @@ from footnote.eval.registry import TestRunRefused
 from footnote.eval.run import DEFAULT_RESULTS, register_known_systems, run_eval
 from footnote.eval.split import SplitName
 from footnote.eval.stats import cluster_bootstrap, paired_cluster_bootstrap
-from footnote.eval.summary import outcomes_by_company
+from footnote.eval.summary import is_grader_error, outcomes_by_company
 from footnote.llm.client import LLMClient
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
@@ -48,18 +48,30 @@ def eval_cmd(
     except TestRunRefused as exc:
         typer.echo(f"refused: {exc}", err=True)
         raise typer.Exit(1) from exc
+    if s["ci95"] is None:
+        typer.echo(
+            f"{run_id}: nothing graded ({s['grader_errors']} grader errors); rerun to resume"
+        )
+        raise typer.Exit(1)
     lo, hi = s["ci95"]
     typer.echo(
-        f"{run_id}: {s['correct']}/{s['n']} correct = {s['accuracy']:.3f} "
+        f"{run_id}: {s['correct']}/{s['n_graded']} correct = {s['accuracy']:.3f} "
         f"(95% CI {lo:.3f} to {hi:.3f}), {s['errors']} errors, ${s['cost_usd']:.4f}"
     )
+    if not s["complete"]:
+        typer.echo(f"incomplete: {s['grader_errors']} grader errors; rerun with the same run id")
+        raise typer.Exit(1)
 
 
 @app.command("compare")
 def compare_cmd(run_a: str, run_b: str, results_dir: ResultsDir = DEFAULT_RESULTS) -> None:
     by_id = {q.id: q for q in load_questions()}
     va, vb = read_verdicts(results_dir / run_a), read_verdicts(results_dir / run_b)
-    shared = [by_id[i] for i in sorted(set(va) & set(vb))]
+    shared = [
+        by_id[i]
+        for i in sorted(set(va) & set(vb))
+        if not (is_grader_error(va[i]) or is_grader_error(vb[i]))
+    ]
     if not shared:
         typer.echo("the two runs share no questions", err=True)
         raise typer.Exit(1)

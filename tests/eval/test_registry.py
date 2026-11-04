@@ -29,3 +29,11 @@ def test_started_test_run_resumable(tmp_path: Path) -> None:
         start_test_run(tmp_path, "agent", "h1", "r9")
     complete_test_run(tmp_path, "agent", "r1")
     assert json.loads((tmp_path / "test_runs.json").read_text())["agent"]["state"] == "completed"
+
+
+def test_started_run_with_changed_config_refused(tmp_path: Path) -> None:
+    start_test_run(tmp_path, "agent", "h1", "r1")
+    with pytest.raises(TestRunRefused):
+        start_test_run(tmp_path, "agent", "h2", "r1")
+    start_test_run(tmp_path, "agent", "h2", "r1", rerun=True, reason="prompt fixed")
+    assert json.loads((tmp_path / "test_runs.json").read_text())["agent"]["config_hash"] == "h2"

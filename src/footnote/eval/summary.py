@@ -30,11 +30,19 @@ def git_sha() -> str:
         return "unknown"
 
 
+def is_grader_error(v: Verdict) -> bool:
+    """Grading itself failed; the system's answer was never judged."""
+    return v.method == "llm" and v.label == "error"
+
+
 def outcomes_by_company(
     questions: list[AgentQuestion], verdicts: dict[str, Verdict]
 ) -> dict[str, list[bool]]:
+    """Graded questions only, by company."""
     out: dict[str, list[bool]] = {}
     for q in questions:
+        if is_grader_error(verdicts[q.id]):
+            continue
         out.setdefault(q.company, []).append(verdicts[q.id].label == "correct")
     return out
 
@@ -54,7 +62,12 @@ def build_summary(
     )
     answered = [p for p in ps if p.status == "answered"]
     verified = [p for p in answered if p.verify_ok is not None]
-    _, lo, hi = cluster_bootstrap(outcomes_by_company(questions, verdicts))
+    grader_errors = sum(is_grader_error(verdicts[q.id]) for q in questions)
+    n_graded = n - grader_errors
+    ci = None
+    if n_graded:
+        _, lo, hi = cluster_bootstrap(outcomes_by_company(questions, verdicts))
+        ci = [lo, hi]
     return {
         "system": spec.family,
         "version": spec.version,
@@ -62,8 +75,11 @@ def build_summary(
         "split": split,
         "n": n,
         "correct": correct,
-        "accuracy": correct / n,
-        "ci95": [lo, hi],
+        "n_graded": n_graded,
+        "grader_errors": grader_errors,
+        "complete": grader_errors == 0,
+        "accuracy": correct / n_graded if n_graded else None,
+        "ci95": ci,
         "coverage": len(answered) / n,
         "declined": sum(p.status == "declined" for p in ps),
         "errors": sum(p.status == "error" for p in ps),

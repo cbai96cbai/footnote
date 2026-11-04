@@ -1,6 +1,7 @@
 """Run files: predictions.jsonl and verdicts.jsonl, appended one line at a time."""
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,8 @@ from footnote.prediction import (
     usage_from_dict,
     usage_to_dict,
 )
+
+log = logging.getLogger(__name__)
 
 
 def verdict_to_dict(v: Verdict) -> dict[str, Any]:
@@ -38,9 +41,29 @@ def _append(path: Path, record: dict[str, Any]) -> None:
 
 
 def _read(path: Path) -> list[dict[str, Any]]:
+    """Complete records only; a torn last line (crash mid-write) is dropped and cut off the file."""
     if not path.exists():
         return []
-    return [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+    raw = path.read_bytes()
+    *terminated, tail = raw.split(b"\n")
+    keep = len(raw) - len(tail)  # bytes up to the end of the last terminated line
+    if tail.strip():
+        log.warning("%s: dropping a torn last line (not fully written)", path)
+    records: list[dict[str, Any]] = []
+    for i, line in enumerate(terminated):
+        if not line.strip():
+            continue
+        try:
+            records.append(json.loads(line))
+        except ValueError:
+            if any(x.strip() for x in terminated[i + 1 :]) or tail.strip():
+                raise
+            log.warning("%s: dropping an unparseable last line", path)
+            keep = sum(len(x) + 1 for x in terminated[:i])
+    if keep < len(raw):
+        with path.open("r+b") as fh:
+            fh.truncate(keep)
+    return records
 
 
 def append_prediction(run_dir: Path, p: Prediction) -> None:

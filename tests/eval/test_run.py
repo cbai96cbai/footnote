@@ -145,9 +145,10 @@ def test_question_error_recorded_and_run_continues(tmp_path: Path) -> None:
         and "CallFailed: timeout" in preds["q1"]["trace"][0]["summary"]
     )
     assert preds["q1"]["usage"]["charged_max"] is True
+    assert Decimal(preds["q1"]["usage"]["cost"]) == MAX_Q
     assert "ValueError: boom" in preds["q2"]["trace"][0]["summary"]
-    assert preds["q2"]["usage"]["cost"] == "0"
-    assert summary["cost_usd"] == pytest.approx(0.014)
+    assert Decimal(preds["q2"]["usage"]["cost"]) == MAX_Q
+    assert summary["cost_usd"] == pytest.approx(float(2 * MAX_Q) + 0.004)
 
 
 def test_test_split_registry_guard(tmp_path: Path) -> None:
@@ -158,3 +159,74 @@ def test_test_split_registry_guard(tmp_path: Path) -> None:
     s = run_eval("fake", "test", "t2", rerun_test=True, reason="grader fixed", **kw)
     assert s["rerun_reason"] == "grader fixed"
     run_eval("fake", "dev", "d1", **kw)  # dev is never limited
+
+
+def test_torn_last_line_resumes(tmp_path: Path) -> None:
+    kw = setup(tmp_path, lambda q, c: prediction(q))
+    run_eval("fake", "dev", "r1", **kw)
+    d = tmp_path / "results" / "r1"
+    for name in ("predictions.jsonl", "verdicts.jsonl"):
+        text = (d / name).read_text()
+        (d / name).write_text(
+            text[: text.rstrip("\n").rfind("\n") + 1] + text.splitlines()[-1][:20]
+        )
+    calls: list[str] = []
+    register_system(
+        "fake", lambda q, c: (calls.append(q.id), prediction(q))[1], MAX_Q, {"version": "1"}
+    )
+    run_eval("fake", "dev", "r1", **kw)
+    assert calls == ["q3"]
+    for name in ("predictions.jsonl", "verdicts.jsonl"):
+        assert [r["question_id"] for r in lines(d / name)] == ["q0", "q1", "q2", "q3"]
+
+
+def test_raising_runner_charged_system_maximum(tmp_path: Path) -> None:
+    def runner(q: AgentQuestion, client: Any) -> Prediction:
+        raise ValueError("boom")
+
+    kw = setup(tmp_path, runner)
+    s = run_eval("fake", "dev", "r1", **kw)
+    p = lines(tmp_path / "results" / "r1" / "predictions.jsonl")[0]
+    assert p["usage"]["charged_max"] is True and Decimal(p["usage"]["cost"]) == MAX_Q
+    assert s["errors"] == 4 and s["cost_usd"] == pytest.approx(4 * float(MAX_Q))
+
+
+class FlakyClient(FakeClient):
+    broken = True
+
+    def chat(self, messages: Any, **kw: Any) -> ChatResult:
+        if self.broken and "Q1?" in str(messages[-1]["content"]):
+            raise CallFailed("grader timeout", Usage(4000, 500, Decimal("0.003"), True))
+        return super().chat(messages, **kw)
+
+
+def test_grader_error_regraded_on_resume_and_excluded_from_accuracy(tmp_path: Path) -> None:
+    calls: list[str] = []
+
+    def runner(q: AgentQuestion, client: Any) -> Prediction:
+        calls.append(q.id)
+        return prediction(q)
+
+    kw = setup(tmp_path, runner)
+    kw["client"] = FlakyClient()
+    s = run_eval("fake", "dev", "r1", **kw)
+    assert s["grader_errors"] == 1 and s["complete"] is False
+    assert s["n"] == 4 and s["n_graded"] == 3 and s["accuracy"] == 1.0 and s["correct"] == 3
+    kw["client"].broken = False
+    s = run_eval("fake", "dev", "r1", **kw)
+    assert calls == ["q0", "q1", "q2", "q3"]  # the system was not re-run
+    assert s["grader_errors"] == 0 and s["complete"] is True and s["n_graded"] == 4
+    assert s["cost_usd"] == pytest.approx(
+        4 * 0.001 + 4 * 0.001 + 2 * 0.003
+    )  # the grader retried once
+
+
+def test_incomplete_test_run_stays_started_and_config_change_refused(tmp_path: Path) -> None:
+    kw = setup(tmp_path, lambda q, c: prediction(q))
+    kw["client"] = FlakyClient()
+    run_eval("fake", "test", "t1", **kw)
+    reg = json.loads((tmp_path / "results" / "test_runs.json").read_text())
+    assert reg["fake"]["state"] == "started"
+    register_system("fake", lambda q, c: prediction(q), MAX_Q, {"version": "1", "prompt": "new"})
+    with pytest.raises(TestRunRefused):
+        run_eval("fake", "test", "t1", **kw)
