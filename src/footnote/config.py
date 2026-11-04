@@ -21,7 +21,7 @@ class Settings:
         return cls(
             azure_endpoint=env.get("AZURE_OPENAI_ENDPOINT", ""),
             azure_api_key=env.get("AZURE_OPENAI_API_KEY", ""),
-            agent_deployment=env.get("FOOTNOTE_AGENT_DEPLOYMENT", "footnote-agent"),
-            grader_deployment=env.get("FOOTNOTE_GRADER_DEPLOYMENT", "footnote-grader"),
+            agent_deployment=env.get("FOOTNOTE_AGENT_DEPLOYMENT") or "footnote-agent",
+            grader_deployment=env.get("FOOTNOTE_GRADER_DEPLOYMENT") or "footnote-grader",
             cache=cache_dir(),
         )
