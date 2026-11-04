@@ -54,8 +54,17 @@ def test_agreement_edge_cases() -> None:
         lab("n", "incorrect", "me"),
         lab("zzz", "correct", "me"),
     ]
-    r = grader_agreement(verdicts, labels)
-    assert r["n"] == 1 and r["agreement_ci95"] is None  # no companies given
+    r = grader_agreement(verdicts, labels, companies={"a": "X", "e": "X", "n": "Y", "zzz": "Z"})
+    assert r["n"] == 1 and r["agreement_ci95"] == (1.0, 1.0)
     assert r["false_positive_rate"] is None  # no reference-incorrect items
-    assert grader_agreement({}, [])["reference"] == "ai"
-    assert grader_agreement({}, [])["agreement_rate"] is None
+    assert grader_agreement({}, [], companies={})["reference"] == "ai"
+    assert grader_agreement({}, [], companies={})["agreement_rate"] is None
+
+
+def test_missing_company_raises() -> None:
+    with pytest.raises(ValueError, match="b"):
+        grader_agreement(
+            {"a": v("a", "correct")},
+            [lab("a", "correct", "me"), lab("b", "correct", "me")],
+            companies={"a": "X"},
+        )
