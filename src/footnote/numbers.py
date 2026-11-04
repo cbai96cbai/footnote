@@ -31,10 +31,10 @@ _NUMBER = re.compile(
     \$?\s*
     (?:(?<![\w.])(?P<neg2>[-−]))?
     (?<![A-Za-z0-9_])(?<!\d\.)
-    (?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)
+    (?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)
     (?:\s*(?P<scale>(?i:thousand|million|billion)|(?-i:bn|mn|mm|b|B|M|k|K)))?
     (?:(?P<pct>\s*%|\s+percent\b)|(?(scale)(?!)|(?P<x>x\b)))?
-    (?(open)\s*\)|)
+    (?(open)\s*\)(?(pct)|(?P<pct2>\s*%)?)|)
     (?![A-Za-z0-9_])
     (?!-[A-Za-z])
     (?!\.\d)
@@ -64,8 +64,30 @@ def parse_numbers(text: str) -> list[ParsedNumber]:
             value = -value
         scale = _scale(m["scale"]) if m["scale"] else Decimal(1)
         decimals = len(digits.split(".")[1]) if "." in digits else 0
-        out.append(ParsedNumber(value, decimals, m["pct"] is not None, scale))
+        out.append(ParsedNumber(value, decimals, (m["pct"] or m["pct2"]) is not None, scale))
     return out
+
+
+_TOKEN = re.compile(r"\w+(?:[.,−-]\w+)*")
+_IDENTIFIER = re.compile(r"[^\W\d]|\d+-[A-Za-z]|\d+(?:st|nd|rd|th)\b", re.IGNORECASE)
+
+
+def unrecognized_tokens(text: str) -> list[str]:
+    """Digit-bearing tokens the parser did not fully read (closed world: these fail).
+
+    Identifiers ("FY2018", "Q3", "10-K", "3rd") are not numbers. Anything else with a digit
+    that the parser skipped ("999e9", "1.2.3", "7A") is returned.
+    """
+    masked = list(text)
+    for m in _NUMBER.finditer(text):
+        masked[m.start() : m.end()] = " " * (m.end() - m.start())
+    left = {i for i, ch in enumerate(masked) if ch.isdigit()}
+    found: list[str] = []
+    for tok in _TOKEN.finditer(text):
+        if any(i in left for i in range(tok.start(), tok.end())):
+            if not _IDENTIFIER.match(tok[0]) and tok[0] not in found:
+                found.append(tok[0])
+    return found
 
 
 def parse_gold_number(text: str) -> ParsedNumber | None:

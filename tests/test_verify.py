@@ -159,3 +159,37 @@ def test_oversized_or_deeply_nested_expressions_are_rejected_not_crashed() -> No
     huge = Calc("-" * 5000 + "1", [Decimal(1)], Decimal(1))
     ok, problems = check("It is 1.", [], "x", calcs=[huge])
     assert not ok and any("calculation rejected" in p for p in problems)
+
+
+def test_unrecognized_number_format_fails_closed() -> None:
+    ok, problems = check("The value is 999e9.", ["Revenue"], "Revenue")
+    assert not ok and any("unrecognized number format: 999e9" in p for p in problems)
+    assert not check("It is 1.2E3.", ["Revenue 1,200"], "Revenue 1,200")[0]
+    assert check("In FY2018 and Q3 under the 10-K, the 3rd.", ["Revenue"], "Revenue")[0]
+
+
+def test_leading_decimal_point_is_read_as_a_decimal() -> None:
+    assert not check("It was .5.", ["Rate 5"], "Rate 5")[0]
+    assert check("It was .5.", ["Rate 0.5"], "Rate 0.5")[0]
+
+
+def test_parenthesised_percent_is_negative() -> None:
+    assert not check("It fell 50%.", ["Change (0.5)%"], "Change (0.5)%")[0]
+    assert check("It was -0.5%.", ["Change (0.5)%"], "Change (0.5)%")[0]
+    assert check("It was (5.2)%.", ["Change (5.2)%"], "Change (5.2)%")[0]
+
+
+def test_question_number_is_not_a_calculation_operand() -> None:
+    calc = evaluate_expression("2020+2020")
+    q = "What happened in 2020?"
+    assert not check("It is 4,040.", [], "x", question=q, calcs=[calc])[0]
+
+
+def test_calculation_with_cited_operands_and_unit_constant() -> None:
+    page = "Gross profit 1,018 and revenue 1,557"
+    calc = evaluate_expression("1018/1557*100")
+    ok, problems = check(
+        "Margin was 65.4%.", ["Gross profit 1,018", "revenue 1,557"], page, calcs=[calc]
+    )
+    assert ok, problems
+    assert not check("Margin was 65.4%.", ["Gross profit 1,018"], page, calcs=[calc])[0]

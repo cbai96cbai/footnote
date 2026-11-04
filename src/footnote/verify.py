@@ -2,8 +2,9 @@
 
 What it proves: every quote exists in the cited filing page, and every number in the answer is a
 correct rounding of a number in a cited quote, or of a logged calculation whose operands all appear
-in cited quotes (numbers in the question are exempt). It does not prove that a number means what
-the answer says (units, periods); the grader measures that.
+in cited quotes (or are unit constants). Numbers in the question are exempt only as displayed
+numbers, never as operands; a digit the parser cannot fully read fails closed. It does not prove
+that a number means what the answer says (units, periods); the grader measures that.
 
 Documented limits: tables rarely state units in the quoted line, so a shown number with a scale
 word may match a quoted number times 1e3, 1e6 or 1e9; signs are not compared (an answer says
@@ -17,10 +18,11 @@ from decimal import Decimal, DivisionByZero, InvalidOperation, Overflow
 
 from footnote.answers import AgentAnswer, FinalValue
 from footnote.corpus.normalize import normalize_text
-from footnote.numbers import ParsedNumber, is_valid_rounding, parse_numbers
+from footnote.numbers import ParsedNumber, is_valid_rounding, parse_numbers, unrecognized_tokens
 
 _MAGNITUDES = (Decimal(1), Decimal("1e3"), Decimal("1e6"), Decimal("1e9"))
 # final_value is stated in the question's requested unit: any power of 1000 either way
+_UNIT_CONSTANTS = (Decimal(100), Decimal(1000), Decimal("1e6"), Decimal("1e9"))
 _FINAL_MAGNITUDES = tuple(Decimal(10) ** e for e in range(-9, 10, 3))
 MAX_QUOTE_CHARS = 400  # the site's excerpt cap; a longer quote could "support" a whole page
 _MAX_POWER = 10
@@ -137,18 +139,18 @@ def _in_question(shown: ParsedNumber, question: list[ParsedNumber]) -> bool:
     return any(shown.value == q.value and shown.scale == q.scale for q in question)
 
 
-def _operand_cited(op: Decimal, cited: list[ParsedNumber], question: list[ParsedNumber]) -> bool:
-    pool = cited + question
-    return any(op in (b * s, -b * s) for n in pool for b in _bases(n) for s in _MAGNITUDES)
+def _operand_cited(op: Decimal, cited: list[ParsedNumber]) -> bool:
+    """An operand is a number from a cited quote or a unit constant; the question never counts."""
+    if op in _UNIT_CONSTANTS:
+        return True
+    return any(op in (b * s, -b * s) for n in cited for b in _bases(n) for s in _MAGNITUDES)
 
 
-def _calc_results(
-    calcs: list[Calc], cited: list[ParsedNumber], q: list[ParsedNumber]
-) -> list[Decimal]:
+def _calc_results(calcs: list[Calc], cited: list[ParsedNumber]) -> list[Decimal]:
     return [
         c.result
         for c in calcs
-        if _calc_is_sound(c) and all(_operand_cited(o, cited, q) for o in c.operands)
+        if _calc_is_sound(c) and all(_operand_cited(o, cited) for o in c.operands)
     ]
 
 
@@ -194,7 +196,10 @@ def verify_answer(
             cited.extend(parse_numbers(c.quote))
     if not answer.declined:
         q_nums = parse_numbers(question)
-        results = _calc_results(calcs, cited, q_nums)
+        results = _calc_results(calcs, cited)
+        problems.extend(
+            f"unrecognized number format: {t}" for t in unrecognized_tokens(answer.answer)
+        )
         for shown in parse_numbers(answer.answer):
             if not _number_supported(shown, cited, results, q_nums):
                 problems.append(
