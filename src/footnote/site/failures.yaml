@@ -31,8 +31,8 @@
   note: >-
     Long context answered $0.389 billion, which is the filing's $389 million. The reference says
     $0.40, and the numeric match scored the answer incorrect, as it did the agent's 0.39 and
-    plain retrieval's 0.389. The answers match the filing's figure; the gap is the reference's
-    rounding, and the miss still counts.
+    plain retrieval's 0.389. The answers match the filing's figure and the reference's $0.40 does
+    not; the miss still counts.
 - id: financebench_id_07966
   system: Without documents
   note: >-

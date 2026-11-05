@@ -50,13 +50,15 @@ beats retrieving pieces of it.
 
 - **Answers with quotes.** For each question the agent searches one filing, reads pages, does its
   arithmetic with a calculator tool, and submits an answer with the page and the exact quotes
-  behind it. Code then checks that every quote is on its cited page and that the final number
-  traces to those quotes; the agent answers only when the check passes (details in
+  behind it. Code then checks that every quote is on its cited page and that the structured final
+  number, when the answer gives one, traces to those quotes; the agent answers only when the check
+  passes (details in
   [What the grounding check proves](#what-the-grounding-check-proves)).
 - **An honest comparison.** Three baselines use the same model, the same filing and the same
   grading: no documents, plain retrieval of the top passages, and long context (as much of the
   filing as fits in 200,000 tokens).
-- **A static site** shows every answer, its trace and the grader's verdict, failures included. A
+- **A static site** shows every answer, its trace and the grader's verdict, failures included,
+  except for questions about Health Care companies (19 of the 150), which are scored but not shown. A
   citation is shown only when its quote check passed; otherwise the page says "Quote not confirmed
   on the cited page" or "Cited page does not match", or that the answer was not checked.
 
@@ -78,9 +80,11 @@ frozen. Scores below are correct answers out of 93.
   computed.
 
 Between two runs of the same version, 17 to 23 of the 93 questions changed between correct and
-not correct (version 2: 19, version 3: 23, version 4: 17). A one-run difference of a few questions
-is noise, which is why the test split was run once per system, after the freeze, and intervals are
-reported instead of a single score.
+not correct (version 2: 19, version 3: 23, version 4: 17). So a one-run difference of a few
+questions cannot be told apart from run-to-run variation. That is why each version was run twice on
+the development split before choosing, and why the test split was run once per system after the
+freeze. The intervals in the results table resample companies; they do not include this run-to-run
+variation.
 
 ## Checking the grader
 
@@ -112,7 +116,7 @@ flowchart LR
 
 Real failures from the test runs, published rather than selected away; the
 [failures page](https://cbai96cbai.github.io/footnote/failures.html) has eight, and each run's
-full list.
+full list (Health Care questions excepted).
 
 - **Declined.** On a cash conversion cycle the agent never calculated the payables term, and its
   two answers (17.6) failed the check, so it declined; long context got it right.
