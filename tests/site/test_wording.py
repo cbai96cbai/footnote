@@ -74,19 +74,18 @@ NO_NUMBER = (
 )
 
 
-def test_scale_and_no_final_number_sentences_are_stated_in_each_scope_statement(
+def test_scale_and_no_final_number_rules_are_stated_once_and_summarised_consistently(
     public_text: dict[str, str],
 ) -> None:
     for name in ("README.md", "about.html"):
         flat = " ".join(public_text[name].split())
         assert NO_NUMBER in flat, name
     readme = " ".join(public_text["README.md"].split())
-    assert readme.count(OPERANDS) == 2 and readme.count(NO_NUMBER) == 2
-    assert (
-        readme.count("percents and ratios take no scale")
-        + readme.count("percent and ratio take no scale")
-        == 2
-    )
+    # the README states the rules once, in its grounding-check section; the summary points there
+    assert readme.count(OPERANDS) == 1 and readme.count(NO_NUMBER) == 1
+    assert readme.count("percent and ratio take no scale") == 1
+    assert "number, when the answer gives one, traces to those quotes" in readme
+    assert "(#what-the-grounding-check-proves)" in readme
     about = " ".join(public_text["about.html"].split())
     assert OPERANDS in about and "percent and ratio take no scale" in about
     assert "The final value may be scaled by a power of 1,000" in about
