@@ -30,6 +30,7 @@ def test_filing_spells_the_form_with_a_hyphen() -> None:
     doc = DocInfo("D", "3M", "Industrials", "10K", 2018, "u")
     assert filing(doc) == "3M 10-K 2018"
     assert filing(DocInfo("D", "Acme", "x", "10Q", 2019, "u")) == "Acme 10-Q 2019"
+    assert filing(DocInfo("D", "3M", "x", "10k", 2018, "u")) == "3M 10-K 2018"  # as the data has it
     assert filing(DocInfo("D", "Acme", "x", "EARNINGS", 2019, "u")) == "Acme EARNINGS 2019"
 
 

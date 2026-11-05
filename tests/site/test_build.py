@@ -163,3 +163,19 @@ def test_about_page_does_not_overclaim_grounding(
     assert "every number" not in about.lower()
     assert "hyphenation. The final" in about
     assert "not checked" in about
+
+
+def test_a_lowercase_form_in_the_data_is_still_the_sec_form(
+    results: Path, tmp_path: Path, inject: dict[str, Any]
+) -> None:
+    from dataclasses import replace
+
+    inject["docs"] = {
+        **inject["docs"],
+        "ACME_2022_10K": replace(inject["docs"]["ACME_2022_10K"], doc_type="10k"),
+    }
+    out = tmp_path / "out"
+    build(results, out, inject)
+    page = (out / "q" / "q1.html").read_text()
+    assert "type=10-K" in page and "Acme, 10-K 2022." in page
+    assert "<title>Acme 10-K 2022:" in page

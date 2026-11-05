@@ -4,7 +4,7 @@ from footnote.answers import FinalValue
 from footnote.benchmark import DocInfo
 from footnote.page_problems import parse_page_problem
 from footnote.prediction import Prediction, Step
-from footnote.site.links import FORMS
+from footnote.site.links import form_name
 
 NOT_TRACED = "Final number not traced to the quotes"
 NOT_CONFIRMED = "Quote not confirmed on the cited page"
@@ -20,7 +20,7 @@ _REJECTED = "verification failed"
 
 
 def form(doc_type: str) -> str:
-    return FORMS.get(doc_type, doc_type)
+    return form_name(doc_type) or doc_type
 
 
 def filing(doc: DocInfo) -> str:

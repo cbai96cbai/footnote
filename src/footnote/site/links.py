@@ -24,10 +24,15 @@ FORMS = {"10K": "10-K", "10Q": "10-Q", "8K": "8-K"}
 EDGAR = "https://www.sec.gov/cgi-bin/browse-edgar"
 
 
+def form_name(doc_type: str) -> str | None:
+    """The form as the SEC writes it ("10k" and "10K" are both "10-K"); None for other kinds."""
+    return FORMS.get(doc_type.upper())
+
+
 def edgar_search_url(company: str, doc_type: str) -> str:
     params = {
         "company": company,
-        "type": FORMS.get(doc_type, ""),
+        "type": form_name(doc_type) or "",
         "dateb": "",
         "owner": "include",
         "count": "40",
