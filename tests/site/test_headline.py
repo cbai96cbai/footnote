@@ -50,7 +50,9 @@ def test_a_baseline_highest() -> None:
         run("no-docs", 0.33, None, 0.001, split="dev"),
     ]
     assert headline(runs) == (
-        "On the 93 development questions, Long context scores highest (87%). "
+        "On the 93 development questions (latest version of each system: Footnote agent v1, "
+        "Plain retrieval v1, Long context v1, Without documents v1), "
+        "Long context scores highest (87%). "
         f"The agent scores 72% and {CHECK}; 20% of Long context answers pass the same check. "
         "The agent costs 28% as much per question as Long context."
     )
@@ -124,17 +126,37 @@ def test_several_versions_rank_the_latest_of_each_system_and_say_so() -> None:
         run("long-context", 0.80, 0.2, split="dev"),
     ]
     text = headline(runs) or ""
-    assert text.startswith("On the 93 development questions, Long context scores highest (80%).")
+    assert text.startswith(
+        "On the 93 development questions (latest version of each system: Footnote agent v2, "
+        "Long context v1), Long context scores highest (80%)."
+    )
     assert "The agent scores 60%" in text and "95%" not in text
 
 
-def _truncated(r: Run, k: int, total: int) -> Run:
+def test_a_newer_gate_run_is_never_ranked_as_a_development_run() -> None:
+    runs = [
+        run("agent", 0.70, 1.0, split="dev", version="v1"),
+        run("agent", 1.00, 1.0, split="gate", version="v2", n=30),
+        run("long-context", 0.80, 0.2, split="dev"),
+    ]
+    text = headline(runs) or ""
+    assert text.startswith("On the 93 development questions (latest version of each system: ")
+    assert (
+        "Long context scores highest (80%)" in text
+        and "highest (100%)" not in text
+        and "scores 100%" not in text
+    )
+    assert headline([run("agent", 1.0, 1.0, split="gate")]) is None
+
+
+def _truncated(r: Run, ks: set[int], total: int) -> Run:
+    """Questions q0..: those in `ks` have a cut filing; filings repeat (q i is filing i // 2)."""
     preds = {}
     for i in range(total):
         p = prediction(QUESTIONS[0], "long-context")
         pack = Step(
             "pack",
-            {"pages_in_filing": 382, "pages_included": 220, "truncated": i < k},
+            {"pages_in_filing": 382, "pages_included": 220, "truncated": i in ks},
             "x",
             p.usage,
         )
@@ -142,14 +164,20 @@ def _truncated(r: Run, k: int, total: int) -> Run:
     return replace(r, predictions=preds)
 
 
-def test_truncated_long_context_filings_are_disclosed_from_the_record() -> None:
-    lc = _truncated(run("long-context", 0.87, 0.2), 12, 93)
-    text = headline([run("agent", 0.72, 1.0), lc]) or ""
+def _filing(q: str) -> str:
+    return f"doc{int(q[1:]) // 2}"
+
+
+def test_truncation_counts_questions_and_distinct_filings() -> None:
+    lc = _truncated(run("long-context", 0.87, 0.2), {0, 1, 2, 5}, 93)  # filings doc0, doc1, doc2
+    text = headline([run("agent", 0.72, 1.0), lc], _filing) or ""
     window = f"{LIMITS['long_context'].max_input_tokens:,}"
     assert (
-        "Long context could read only part of 12 of 93 filings, which were longer than its "
-        f"{window}-token window." in text
+        "For 4 of the 93 questions (3 filings), the filing was longer than Long context's "
+        f"{window}-token window, so it read only part of it." in text
     )
+    one = _truncated(run("long-context", 0.87, 0.2), {4, 5}, 93)
+    assert "(1 filing)" in (headline([one], _filing) or "")
     assert "whole filing" not in text
-    untruncated = _truncated(run("long-context", 0.87, 0.2), 0, 93)
-    assert "could read only part" not in (headline([untruncated]) or "")
+    untruncated = _truncated(run("long-context", 0.87, 0.2), set(), 93)
+    assert "read only part" not in (headline([untruncated], _filing) or "")

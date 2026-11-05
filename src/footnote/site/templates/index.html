@@ -10,9 +10,9 @@ Intervals resample whole companies, because questions about one company are not 
 {% if headline %}
 <p class="headline">{{ headline }}</p>
 <p class="muted">{% if test %}From the test split.{% else %}From exploratory development runs; no test-split run has been published yet.{% endif %}
-{{ " " }}<a href="questions.html">Browse every question</a> to see each system's answer and its quotes.</p>
+{{ " " }}<a href="questions.html">Browse the questions{% if hidden %} ({{ hidden }} about Health Care companies {{ "is" if hidden == 1 else "are" }} scored but not shown){% endif %}</a> to see each system's answer and its quotes.</p>
 {% else %}
-<p class="muted"><a href="questions.html">Browse every question</a>.</p>
+<p class="muted"><a href="questions.html">Browse the questions{% if hidden %} ({{ hidden }} about Health Care companies {{ "is" if hidden == 1 else "are" }} scored but not shown){% endif %}</a>.</p>
 {% endif %}
 
 {% if test %}

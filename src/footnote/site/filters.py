@@ -33,12 +33,23 @@ def seconds(x: float | None) -> str:
 
 
 def step_arguments(arguments: object) -> str:
-    """A step's arguments as JSON, with a page index shown as the page number the site prints."""
-    if isinstance(arguments, dict) and isinstance(arguments.get("page_index"), int):
-        arguments = {k: v for k, v in arguments.items() if k != "page_index"} | {
-            "page": arguments["page_index"] + 1
-        }
-    return excerpt(json.dumps(arguments, sort_keys=True, default=str), STEP_LIMIT)
+    """A step's arguments as a short readable phrase, e.g. `"net sales", page 5`."""
+    if not isinstance(arguments, dict):
+        return excerpt(arguments, STEP_LIMIT)
+    parts = []
+    for key, value in sorted(arguments.items()):
+        if key == "page_index" and isinstance(value, int):
+            parts.append(f"page {value + 1}")
+        elif key == "query":
+            parts.append(f'"{value}"')
+        elif key == "expression":
+            parts.append(str(value))
+        else:
+            shown = (
+                value if isinstance(value, str | int | float) else json.dumps(value, default=str)
+            )
+            parts.append(f"{key.replace('_', ' ')} {shown}")
+    return excerpt(", ".join(parts), STEP_LIMIT)
 
 
 def final_value_only(problems: list[str]) -> bool:

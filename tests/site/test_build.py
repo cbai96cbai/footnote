@@ -21,6 +21,9 @@ def test_every_document_string_through_excerpt_filter(
     out = tmp_path / "out"
     build(results, out, inject)
     html = (out / "q" / "q1.html").read_text()
+    gold = html.split('<p class="gold">')[1].split("</p>")[0]
+    assert gold.strip() == ("word " * 300).strip()  # a reference answer is never cut
+    html = html.replace(gold, "")
     assert "word " * 100 not in html  # nothing near the 1500-character originals
     for text in re.findall(r"<(?:mark|blockquote|p)[^>]*>([^<]*)<", html):
         assert len(text) <= EXCERPT_LIMIT + 5

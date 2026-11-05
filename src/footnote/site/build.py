@@ -47,9 +47,8 @@ def _env() -> Environment:
     env.filters["decline_headline"] = wording.decline_headline
     env.filters["filing"] = wording.filing
     env.filters["form"] = wording.form
-    env.filters["stop_reason"] = wording.stop_reason
     env.filters["pack_note"] = wording.pack_note
-    env.filters["reference"] = wording.reference_excerpt
+    env.filters["own_note"] = wording.own_note
     env.filters["final_value_only"] = filters.final_value_only
     env.filters["difference"] = filters.difference
     env.filters["pct"] = filters.pct
@@ -111,6 +110,7 @@ def build_site(
         "curated": [{**f, "page": pages[f["id"]]} for f in failure_list if f.get("id") in pages],
         "failure_tables": failure_tables(runs, pages, gold),
         "has_runs": bool(runs),
+        "headline": headline(runs, lambda q: by_id[q].doc_name if q in by_id else q),
     }
     replace_output(out_dir, lambda target: _write_pages(target, site, base_path))
 
@@ -132,7 +132,8 @@ def _write_pages(out_dir: Path, site: dict[str, Any], base_path: str) -> None:
         test=test,
         dev=dev,
         paired=site["paired"],
-        headline=headline(test + dev),
+        headline=site["headline"],
+        hidden=site["hidden"],
         earlier=_earlier(dev),
         test_chart=_chart(test, "Accuracy on the test split", set()) if test else None,
         dev_chart=_chart(dev, "Accuracy on development runs", _earlier(dev)) if dev else None,

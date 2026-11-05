@@ -1,5 +1,7 @@
 """The one-sentence result above the chart, written from the published runs' own numbers."""
 
+from collections.abc import Callable
+
 from footnote.budget.limits import LIMITS
 from footnote.site.runs import LABELS, ORDER, Run
 
@@ -15,13 +17,13 @@ def _name(system: str) -> str:
 
 
 def _basis(runs: list[Run]) -> tuple[list[Run], str]:
-    """The runs the sentence ranks: the test split when published, else the latest published
-    version of each system on the other splits. Runs without an accuracy are left out."""
+    """The runs the sentence ranks: the test split when published, else the development split
+    (never a gate run), the latest published version of each system. Runs without an accuracy
+    are left out."""
     graded = [r for r in runs if r.summary.get("accuracy") is not None]
     test = [r for r in graded if r.split == "test"]
-    chosen, split = (
-        (test, "test") if test else ([r for r in graded if r.split != "test"], "development")
-    )
+    dev = [r for r in graded if r.split == "dev"]
+    chosen, split = (test, "test") if test else (dev, "development")
     latest = {r.system: r for r in chosen}  # published order: a later run replaces an earlier one
     ordered = sorted(
         latest.values(), key=lambda r: ORDER.index(r.system) if r.system in ORDER else 99
@@ -62,24 +64,33 @@ def _cost(agent: Run, others: list[Run]) -> str | None:
     return f"The agent costs {round(a / b * 100)}% as much per question as {_name(ref.system)}."
 
 
-def _cut_short(scored: list[Run]) -> str | None:
-    lc = next((r for r in scored if r.system == "long-context" and r.truncated_filings), None)
+def _cut_short(scored: list[Run], filing_of: Callable[[str], str]) -> str | None:
+    lc = next((r for r in scored if r.system == "long-context" and r.truncated_questions), None)
     if lc is None:
         return None
+    questions = lc.truncated_questions
+    filings = len({filing_of(q) for q in questions})
     window = LIMITS["long_context"].max_input_tokens
     return (
-        f"{LABELS['long-context']} could read only part of {lc.truncated_filings} of "
-        f"{len(lc.predictions)} filings, which were longer than its {window:,}-token window."
+        f"For {len(questions)} of the {len(lc.predictions)} questions "
+        f"({filings} {'filing' if filings == 1 else 'filings'}), the filing was longer than "
+        f"{LABELS['long-context']}'s {window:,}-token window, so it read only part of it."
     )
 
 
-def headline(runs: list[Run]) -> str | None:
+def headline(runs: list[Run], filing_of: Callable[[str], str] = str) -> str | None:
     """Which system scores highest and how the agent compares, for the runs it names."""
     scored, split = _basis(runs)
     if not scored:
         return None
     count = max(r.summary.get("n") or 0 for r in scored)
-    opener = f"On the {count} {split} questions, " if count else f"On the {split} split, "
+    what = f"{count} {split} questions" if count else f"{split} split"
+    if split == "development":
+        versions = ", ".join(
+            f"{LABELS.get(r.system, r.system)} {r.version}" for r in scored if r.version
+        )
+        what += f" (latest version of each system: {versions})" if versions else ""
+    opener = f"On the {what}, "
     best = max(r.summary["accuracy"] for r in scored)
     top = [r for r in scored if r.summary["accuracy"] == best]
     agent = next((r for r in scored if r.system == "agent"), None)
@@ -99,6 +110,6 @@ def headline(runs: list[Run]) -> str | None:
                 sentences.append(f"{part}.")
     if agent is not None and (cost := _cost(agent, others)):
         sentences.append(cost)
-    if cut := _cut_short(scored):
+    if cut := _cut_short(scored, filing_of):
         sentences.append(cut)
     return " ".join(sentences)

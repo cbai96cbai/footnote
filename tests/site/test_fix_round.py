@@ -1,18 +1,19 @@
 """Behaviour added after the first review: honest labels, hidden rows, stacked cards, copy."""
 
 from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 from support import QUESTIONS, U, prediction, publish, write_run
 
-from footnote.answers import AgentAnswer, Citation
+from footnote.answers import AgentAnswer, Citation, FinalValue
 from footnote.eval.grade import Verdict
 from footnote.eval.records import append_prediction, append_verdict
 from footnote.prediction import Prediction, Step
 from footnote.site.build import build_site
 from footnote.site.filters import step_arguments
-from footnote.site.wording import decline_headline, problem_notes, reference_excerpt, stop_reason
+from footnote.site.wording import final_value_line, problem_notes
 from footnote.verify import verify_answer
 
 QUOTE = "Net sales were 1,234 million dollars"
@@ -108,50 +109,6 @@ def test_end_to_end_the_check_to_the_page_wording() -> None:
     ]
 
 
-# H7
-def _pred(trace: list[Step]) -> Prediction:
-    ans = AgentAnswer(answer="", final_value=None, declined=True, decline_reason="r", citations=[])
-    return Prediction("q1", "agent", "v1", ans, "declined", False, ["no citations"], trace, U, 1.0)
-
-
-REJECT = "verification failed: no citations"
-
-
-def test_an_executed_retry_without_a_new_submission_is_not_a_stop_before_a_retry() -> None:
-    retried = _pred(
-        [
-            Step("submit_answer", {}, REJECT, U),
-            Step("calculate", {}, "3", U),
-            Step("decline", {}, "call limit", U),
-        ]
-    )
-    assert decline_headline(retried, "Footnote agent") == (
-        "The answer failed the code check; a retry reply was made but it did not include a new "
-        "submission"
-    )
-    assert stop_reason(retried) == "call limit"
-    stopped = _pred(
-        [
-            Step("submit_answer", {}, REJECT, U),
-            Step("chat", {}, "stop", U),
-            Step("decline", {}, "context limit", U),
-        ]
-    )
-    assert "stopped before a retry" in decline_headline(stopped, "Footnote agent")
-
-
-def test_the_recorded_stop_reason_is_shown(tmp_path: Path, inject: dict[str, Any]) -> None:
-    root = tmp_path / "results"
-    write_run(root, "agent-dev-1", "agent", "dev", ["q1"], labels=["declined"])
-    pred = _pred(
-        [Step("submit_answer", {}, REJECT, U), Step("decline", {}, "call limit reached", U)]
-    )
-    _swap(root, "agent-dev-1", pred)
-    publish(root, ["agent-dev-1"])
-    html = (_site(root, tmp_path, inject) / "q" / "q1.html").read_text()
-    assert "The run recorded this when it stopped: call limit reached" in html
-
-
 # H8
 def test_questions_become_stacked_cards_on_phones() -> None:
     css = (ROOT / "style.css").read_text()
@@ -160,18 +117,39 @@ def test_questions_become_stacked_cards_on_phones() -> None:
     assert "table.questions thead" in media and "td.company" in media
 
 
-# H9, H10
-def test_reference_answers_are_whole_or_cut_at_a_sentence_end() -> None:
-    text = "First sentence here. " + "Second sentence goes on. " * 30 + "Last bit without stop"
-    cut = reference_excerpt(text, 100)
-    assert cut.endswith(".…") and len(cut) <= 101 and "Last bit" not in cut
-    assert reference_excerpt("Short answer.", 100) == "Short answer."
-    assert reference_excerpt("x" * 300, 100).endswith("…")  # no sentence end: cut at the limit
+# H10 / J5
+def test_trace_arguments_are_a_short_readable_phrase() -> None:
+    assert step_arguments({"page_index": 4, "x": 1}) == "page 5, x 1"
+    assert step_arguments({"query": "net sales"}) == '"net sales"'
+    assert step_arguments({"expression": "1+2"}) == "1+2"
+    assert step_arguments({"last_page": [1, 2]}) == "last page [1, 2]"
 
 
-def test_trace_arguments_show_the_page_number_the_site_prints() -> None:
-    assert step_arguments({"page_index": 4, "x": 1}) == '{"page": 5, "x": 1}'
-    assert step_arguments({"query": "q"}) == '{"query": "q"}'
+def test_the_unit_other_has_no_label() -> None:
+    assert final_value_line(FinalValue(value=Decimal(0), unit="other")) == "Final value: 0"
+    assert final_value_line(FinalValue(value=Decimal("1.5"), unit="ratio")) == (
+        "Final value: 1.5 (ratio)"
+    )
+
+
+def test_the_real_reference_answer_is_shown_in_full(tmp_path: Path) -> None:
+    from html import unescape
+
+    from footnote.benchmark import load_questions
+    from footnote.eval.gold import load_gold
+
+    gold = load_gold()["financebench_id_00995"].answer
+    assert len(gold) > 400
+    q = next(q for q in load_questions() if q.id == "financebench_id_00995")
+    root = tmp_path / "results"
+    write_run(root, "agent-dev-1", "agent", "dev", [q])
+    publish(root, ["agent-dev-1"])
+    inject = {"questions": [q], "gold": {q.id: load_gold()[q.id]}, "link_status": {}}
+    out = tmp_path / "out"
+    build_site(root, out, **inject)
+    page = unescape((out / "q" / f"{q.id}.html").read_text())
+    assert gold in " ".join(page.split()) or " ".join(gold.split()) in " ".join(page.split())
+    assert "…" not in page.split("Reference answer")[1].split("</p>")[0]
 
 
 # H1: truncation on the long-context question section
@@ -224,3 +202,17 @@ def test_the_note_says_the_agent_rate_is_by_design(
     flat = " ".join((_site(results, tmp_path, inject) / "index.html").read_text().split())
     assert "The agent answers only once its answer passes, so its rate is 100% by design" in flat
     assert "the other systems are checked after the fact" in flat
+
+
+def test_the_front_page_link_states_the_hidden_health_care_count(
+    results: Path, tmp_path: Path, inject: dict[str, Any]
+) -> None:
+    index = " ".join((_site(results, tmp_path, inject) / "index.html").read_text().split())
+    assert (
+        "Browse the questions (1 about Health Care companies is scored but not shown)</a>" in index
+    )
+    root = tmp_path / "r2" / "results"
+    write_run(root, "agent-dev-1", "agent", "dev", ["q1"])
+    publish(root, ["agent-dev-1"])
+    other = " ".join((_site(root, tmp_path / "r2", inject) / "index.html").read_text().split())
+    assert "Browse the questions</a>" in other

@@ -1,3 +1,4 @@
+from dataclasses import replace
 from decimal import Decimal
 
 from footnote.answers import AgentAnswer, FinalValue
@@ -7,6 +8,7 @@ from footnote.site.wording import (
     decline_headline,
     filing,
     final_value_line,
+    own_note,
     problem_notes,
     shown_steps,
 )
@@ -85,23 +87,20 @@ def _pred(trace: list[Step], *, declined: bool = True, reason: str | None = "r")
 REJECT = "verification failed: quote not found on page 1: 'a'"
 
 
-def test_a_decline_states_only_what_the_trace_shows() -> None:
+def test_a_decline_is_one_sentence_that_is_always_true() -> None:
     own = _pred([_step("search_filing"), _step("submit_answer", "declined")])
     assert decline_headline(own, "Footnote agent") == "Footnote agent did not give an answer"
-    twice = _pred([_step("submit_answer", REJECT), _step("submit_answer", REJECT)])
-    assert decline_headline(twice, "Footnote agent") == (
-        "The answer failed the code check twice, so it was withheld"
+    assert decline_headline(_pred([]), "Long context") == "Long context did not give an answer"
+    failed = replace(_pred([_step("submit_answer", REJECT)]), verify_ok=False)
+    assert decline_headline(failed, "Footnote agent") == (
+        "Footnote agent's answer did not pass the code check, and no passing answer was "
+        "submitted before the run ended"
     )
-    stopped = _pred([_step("submit_answer", REJECT), _step("decline", "call limit")])
-    assert decline_headline(stopped, "Footnote agent") == (
-        "The answer failed the code check and the run stopped before a retry"
-    )
-    declined_after_one = _pred([_step("submit_answer", REJECT), _step("submit_answer", "declined")])
-    assert decline_headline(declined_after_one, "Plain retrieval") == (
-        "Plain retrieval did not give an answer"
-    )
-    no_trace = _pred([])
-    assert decline_headline(no_trace, "Long context") == "Long context did not give an answer"
+
+
+def test_the_systems_own_note_is_kept_out_of_the_check_failures() -> None:
+    assert own_note(_pred([], reason="no basis")) == "no basis"
+    assert own_note(replace(_pred([], reason="x"), verify_ok=False)) is None
 
 
 def test_only_tool_steps_are_shown() -> None:

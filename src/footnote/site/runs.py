@@ -46,9 +46,9 @@ class Run:
         return f"{self.label} · {kind} run" + (f" ({self.version})" if self.version else "")
 
     @property
-    def truncated_filings(self) -> int:
-        """Predictions whose filing was longer than the window and was cut."""
-        return sum(pack_truncation(p.trace) is not None for p in self.predictions.values())
+    def truncated_questions(self) -> list[str]:
+        """Questions whose filing was longer than the window and was cut, by the pack record."""
+        return sorted(q for q, p in self.predictions.items() if pack_truncation(p.trace))
 
     @property
     def answered_without_final_value(self) -> int:

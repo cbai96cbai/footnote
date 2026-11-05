@@ -11,16 +11,6 @@
   {% endfor %}
   </ul>
   {% endif %}
-  {% set stop = p|stop_reason %}
-  {% if stop %}
-  <p class="muted">The run recorded this when it stopped: {{ stop|excerpt(200) }}</p>
-  {% elif not p.verify_problems %}
-  {% if p.answer and p.answer.decline_reason %}
-  <p class="muted">The reason it gave: {{ p.answer.decline_reason|excerpt }}</p>
-  {% else %}
-  <p class="muted">No reason was given.</p>
-  {% endif %}
-  {% endif %}
   {% if p.answer and p.answer.answer.strip() %}
   <p class="muted">Partial answer (not scored as an answer):</p>
   <p>{{ p.answer.answer|excerpt }}</p>
@@ -70,12 +60,16 @@
   <p class="muted">{{ cut }}</p>
   {% endif %}
   {% set steps = p.trace|shown_steps %}
-  {% if steps %}
+  {% set note = p|own_note if declined else none %}
+  {% if steps or note %}
   <details>
-    <summary>Trace ({{ steps|length }} steps)</summary>
+    <summary>Trace ({{ steps|length }} {{ "step" if steps|length == 1 else "steps" }})</summary>
+    {% if note %}
+    <p class="muted">{{ e.run.label }}'s own note: {{ note|excerpt }}</p>
+    {% endif %}
     <ol class="trace">
     {% for name, s in steps %}
-      <li><code>{{ name }}</code> <code>{{ s.arguments|step_arguments }}</code>
+      <li><strong>{{ name }}</strong> {{ s.arguments|step_arguments }}
       <div class="muted">{{ s.summary|excerpt(200) }}</div></li>
     {% endfor %}
     </ol>

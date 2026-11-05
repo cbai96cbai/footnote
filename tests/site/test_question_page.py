@@ -1,5 +1,6 @@
 from dataclasses import replace
 from decimal import Decimal
+from html import unescape
 from pathlib import Path
 from typing import Any
 
@@ -106,12 +107,14 @@ def test_no_trace_block_when_no_tool_step_exists(tmp_path: Path, inject: dict[st
 REJECT = "verification failed: quote not found on page 4: 'x'"
 
 
-def test_own_decline_names_the_system_and_gives_the_reason(
+def test_own_decline_names_the_system_and_keeps_its_note_in_the_trace(
     tmp_path: Path, inject: dict[str, Any]
 ) -> None:
     pred = _declined("plain-retrieval", [Step("search", {}, "found", U)], reason="no basis")
     html = _page(tmp_path, inject, "plain-retrieval", pred=pred, labels=["declined"])
-    assert "Plain retrieval did not give an answer" in html and "no basis" in html
+    assert "Plain retrieval did not give an answer" in html
+    before, trace = html.split("<details>")
+    assert "no basis" not in before and "Plain retrieval's own note: no basis" in trace
     assert "Partial answer" not in html
 
 
@@ -132,18 +135,23 @@ def test_a_withheld_answer_says_the_code_check_failed_and_why(
         verify_problems=["quote not found on page 4: 'x'; this exact text is on page_index 9"],
     )
     html = _page(tmp_path, inject, pred=pred, labels=["declined"])
-    assert "The answer failed the code check twice, so it was withheld" in html
+    assert "Footnote agent's answer did not pass the code check" in unescape(html)
     assert "Cited page does not match: this text is on page 10, not page 5" in html
     assert "page_index" not in html and "did not give an answer" not in html
+    assert "own note" not in html
 
 
-def test_one_rejection_then_a_stop_is_stated_as_that(
+def test_trace_lines_are_plain_and_the_count_is_singular_for_one_step(
     tmp_path: Path, inject: dict[str, Any]
 ) -> None:
-    trace = [Step("submit_answer", {}, REJECT, U), Step("decline", {}, "call limit", U)]
-    pred = replace(_declined("agent", trace), verify_ok=False, verify_problems=["no citations"])
-    html = _page(tmp_path, inject, pred=pred, labels=["declined"])
-    assert "The answer failed the code check and the run stopped before a retry" in html
+    base = prediction(QUESTIONS[0], "agent", quote=QUOTE)
+    steps = [Step("read_page", {"page_index": 4}, "page text", U)]
+    html = _page(tmp_path, inject, pred=replace(base, trace=steps))
+    assert "Trace (1 step)" in html and "Trace (1 steps)" not in html
+    trace = html.split('<ol class="trace">')[1].split("</ol>")[0]
+    assert (
+        "<strong>read page</strong> page 5" in trace and "{" not in trace and '"page' not in trace
+    )
 
 
 def test_title_description_and_hyphenated_form(tmp_path: Path, inject: dict[str, Any]) -> None:
