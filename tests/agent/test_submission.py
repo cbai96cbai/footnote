@@ -259,7 +259,7 @@ def test_every_model_visible_constant_and_the_check_version_change_the_agent_has
     base = hash_config(CONFIG)
     texts = list(CONFIG["prompt"].values())
     assert submit.IGNORED_EXTRA in texts and submit.IGNORED_AFTER in texts
-    assert CONFIG["verify_version"] == VERIFY_VERSION == "2"
+    assert CONFIG["verify_version"] == VERIFY_VERSION == "3"
     for key in ("ignored_extra_submission", "ignored_after_submission"):
         assert hash_config({**CONFIG, "prompt": {**CONFIG["prompt"], key: "other"}}) != base
-    assert hash_config({**CONFIG, "verify_version": "3"}) != base
+    assert hash_config({**CONFIG, "verify_version": "4"}) != base

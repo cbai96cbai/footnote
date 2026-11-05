@@ -9,7 +9,8 @@
    value shown in parentheses or with a minus sign is the same figure. Units:
    - usd, count and other: the value may be a quoted number or a calculation result scaled by a
      power of 1,000 (thousands, millions, billions; tables rarely state their unit in the quoted
-     line), either direction.
+     line), either direction. The same scale applies alike to quoted numbers, to calculation
+     results, and to calculation operands that come from earlier results.
    - percent and ratio: no scale applies; the value must match the quoted number as written. A
      percent may also be a calculation result times 100 (1018/1557 gives 65.4), never a quoted
      number times 100.
@@ -31,7 +32,7 @@ from footnote.answers import AgentAnswer, FinalValue
 from footnote.corpus.normalize import map_hyphen_marks, normalize_text
 from footnote.numbers import ParsedNumber, is_valid_rounding, parse_numbers
 
-VERIFY_VERSION = "2"  # changes whenever a rule or a problem message of the check changes
+VERIFY_VERSION = "3"  # changes whenever a rule or a problem message of the check changes
 _MAGNITUDES = (Decimal(1), Decimal("1e3"), Decimal("1e6"), Decimal("1e9"))
 # usd, count and other values are stated in the question's requested scale: any power of 1000
 # constants a calculation may use without a citation: averages, annualizing, day counts, units
@@ -156,6 +157,7 @@ def _operand_in_quotes(op: Decimal, cited: list[ParsedNumber]) -> bool:
 def _calc_results(calcs: list[Calc], cited: list[ParsedNumber]) -> list[Decimal]:
     """Results of the traced calculations, in log order. A number is traced when it is in a cited
     quote, is a unit constant, or equals (or negates) the exact result of an earlier traced one;
+    a quoted number and an earlier result may each be scaled by a power of 1,000;
     a calculation needs at least one operand that is not a constant."""
     traced: list[Decimal] = []
     for c in calcs:
@@ -168,7 +170,8 @@ def _calc_results(calcs: list[Calc], cited: list[ParsedNumber]) -> list[Decimal]
 
 
 def _earlier(op: Decimal, traced: list[Decimal]) -> bool:
-    return any(op in (r, -r) for r in traced)
+    """The operand is an earlier traced result, either sign, scaled like a quoted operand."""
+    return any(op in (r * s, -r * s) for r in traced for s in _MAGNITUDES)
 
 
 def _number_supported(

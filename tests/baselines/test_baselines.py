@@ -212,4 +212,4 @@ def test_the_check_version_is_in_each_baseline_config_and_changes_its_hash() -> 
 
     for spec in (no_docs.SPEC, plain_retrieval.SPEC, long_context.SPEC):
         assert spec.config["verify_version"] == VERIFY_VERSION
-        assert hash_config({**spec.config, "verify_version": "3"}) != hash_config(spec.config)
+        assert hash_config({**spec.config, "verify_version": "4"}) != hash_config(spec.config)
