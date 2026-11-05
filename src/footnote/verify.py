@@ -26,7 +26,6 @@ Numbers in the free-text answer are not checked; the grader measures whether the
 """
 
 import ast
-import re
 from dataclasses import dataclass
 from decimal import (
     Context,
@@ -40,9 +39,26 @@ from decimal import (
 )
 
 from footnote.answers import AgentAnswer, FinalValue
-from footnote.corpus.normalize import map_hyphen_marks, normalize_text
+from footnote.corpus.normalize import map_hyphen_marks
 from footnote.numbers import ParsedNumber, is_valid_rounding, parse_numbers
+from footnote.page_problems import (
+    PageProblem,
+    missing_page,
+    not_found,
+    parse_page_problem,
+    quote_in_page,
+)
 
+__all__ = [
+    "MAX_QUOTE_CHARS",
+    "VERIFY_VERSION",
+    "Calc",
+    "PageProblem",
+    "evaluate_expression",
+    "parse_page_problem",
+    "quote_in_page",
+    "verify_answer",
+]
 VERIFY_VERSION = "4"  # changes whenever a rule or a problem message of the check changes
 _MAGNITUDES = (Decimal(1), Decimal("1e3"), Decimal("1e6"), Decimal("1e9"))
 # usd, count and other values are stated in the question's requested scale: any power of 1000
@@ -71,24 +87,6 @@ class Calc:
     expression: str
     operands: list[Decimal]
     result: Decimal
-
-
-_LETTER_HYPHEN = re.compile(r"(?<=[^\W\d_])-(?=[^\W\d_])")
-
-
-def _squash(s: str) -> str:
-    # the normalizer joins "-\n" without a space, so a quoted "long-term" must meet "longterm";
-    # hyphens between digits (ranges such as 2019-2020) stay
-    return _LETTER_HYPHEN.sub("", normalize_text(s))
-
-
-def quote_in_page(quote: str, page_text: str) -> bool:
-    """The quote occurs at token boundaries: never inside a longer word or number."""
-    q = _squash(quote)
-    if not q:
-        return False
-    pattern = r"(?<!\w)(?<!\d[.,])" + re.escape(q) + r"(?!\w)(?![.,]\d)"
-    return re.search(pattern, _squash(page_text)) is not None
 
 
 def _literals(node: ast.AST, source: str, out: list[Decimal]) -> Decimal:
@@ -225,18 +223,6 @@ def _final_as_shown(fv: FinalValue) -> ParsedNumber:
     return ParsedNumber(fv.value, decimals, False, Decimal(1))
 
 
-def _elsewhere(quote: str, page_index: int, pages: dict[int, str]) -> str:
-    found = [n for n, t in sorted(pages.items()) if n != page_index and quote_in_page(quote, t)]
-    if not found:
-        return ""
-    return f"; this exact text is on page_index {', '.join(str(n) for n in found[:3])}"
-
-
-def _not_found(quote: str, page_index: int, pages: dict[int, str]) -> str:
-    message = f"quote not found on page {page_index}: {quote[:80]!r}"
-    return message + _elsewhere(quote, page_index, pages)
-
-
 def verify_answer(
     answer: AgentAnswer,
     pages: dict[int, str],
@@ -260,12 +246,9 @@ def verify_answer(
                 "cut it to the sentence or table row that holds the figure"
             )
         if text is None:
-            problems.append(
-                f"cited page {c.page_index} is not in the filing"
-                + _elsewhere(c.quote, c.page_index, pages)
-            )
+            problems.append(missing_page(c.quote, c.page_index, pages))
         elif not quote_in_page(c.quote, text):
-            problems.append(_not_found(c.quote, c.page_index, pages))
+            problems.append(not_found(c.quote, c.page_index, pages))
         elif not too_long:
             cited.extend(parse_numbers(map_hyphen_marks(c.quote)))
     if not answer.declined:
