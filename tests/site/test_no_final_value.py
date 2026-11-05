@@ -39,11 +39,10 @@ def test_the_note_is_absent_for_a_declined_prediction(
     assert NOTE not in _html(tmp_path, inject, status="declined")
 
 
-def test_the_results_page_shows_the_count_next_to_coverage(
+def test_the_results_page_states_the_count_under_the_table(
     tmp_path: Path, inject: dict[str, Any]
 ) -> None:
     html = _html(tmp_path, inject, "index.html", summary_extra={"answered_without_final_value": 7})
-    assert "Answered without a final number" in html
-    assert '<td class="num">7</td>' in html
+    assert "Answered without a final number: Footnote agent v1 7." in html
     older = _html(tmp_path / "again", inject, "index.html")  # a summary written before the count
-    assert '<td class="num">n/a</td>' in older
+    assert "Answered without a final number: Footnote agent v1 1." in older  # from predictions

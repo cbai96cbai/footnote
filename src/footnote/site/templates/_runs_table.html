@@ -1,33 +1,24 @@
-{% macro runs_table(runs, show_split, paired=none) %}
+{% macro runs_table(runs) %}
 <div class="scroll">
 <table>
   <thead>
     <tr>
-      <th>System</th>{% if show_split %}<th>Version</th><th>Split</th>{% endif %}
+      <th>System</th>
       <th class="num">Accuracy (95% interval)</th>
-{% if paired is not none %}
-      <th class="num">Agent minus this system (paired 95% interval)</th>
-{% endif %}
-      <th class="num">Graded</th>
-      <th class="num">Coverage</th>
-      <th class="num">Answered without a final number</th>
-      <th class="num">Cost / question</th>
-      <th class="num">Mean latency</th>
+      <th class="num">Answered</th>
+      <th class="num">Passed code check</th>
+      <th class="num">Cost per question</th>
+      <th class="num">Time per question</th>
     </tr>
   </thead>
   <tbody>
   {% for r in runs %}
     {% set s = r.summary %}
     <tr>
-      <td>{{ r.label }}<br><span class="muted">{{ r.run_id }}</span></td>
-      {% if show_split %}<td>{{ r.version }}</td><td>{{ r.split }}</td>{% endif %}
-      <td class="num">{{ s.get("accuracy")|pct }}{% if s.get("ci95") %} <span class="muted">({{ s["ci95"][0]|pct }} to {{ s["ci95"][1]|pct }})</span>{% endif %}</td>
-{% if paired is not none %}
-      <td class="num">{% if r.run_id in paired %}{{ paired[r.run_id]|difference }}{% else %}reference{% endif %}</td>
-{% endif %}
-      <td class="num">{{ s.get("n_graded", "n/a") }}/{{ s.get("n", "n/a") }}</td>
+      <td>{{ r.display_label }}</td>
+      <td class="num"><span class="nowrap">{{ s.get("accuracy")|pct }}</span>{% if s.get("ci95") %} <span class="muted nowrap">({{ s["ci95"][0]|pct }} to {{ s["ci95"][1]|pct }})</span>{% endif %}</td>
       <td class="num">{{ s.get("coverage")|pct }}</td>
-      <td class="num">{{ s.get("answered_without_final_value", "n/a") }}</td>
+      <td class="num">{{ s.get("verified_rate")|pct }}</td>
       <td class="num">{{ s.get("cost_per_question")|usd }}</td>
       <td class="num">{{ s.get("mean_latency_s")|seconds }}</td>
     </tr>
@@ -35,4 +26,30 @@
   </tbody>
 </table>
 </div>
+<p class="muted">Runs shown: {% for r in runs %}{{ r.display_label }}: version {{ r.version }}, {{ r.split }} split, run {{ r.run_id }}{{ "; " if not loop.last else "." }}{% endfor %}</p>
+<p class="muted">Answered without a final number: {% for r in runs %}{{ r.display_label }} {{ r.answered_without_final_value }}{{ ", " if not loop.last else "." }}{% endfor %}</p>
+{% endmacro %}
+
+{% macro paired_table(runs, paired) %}
+<div class="scroll">
+<table class="compact">
+  <thead>
+    <tr><th>System</th><th class="num">Agent minus this system (paired 95% interval)</th></tr>
+  </thead>
+  <tbody>
+  {% for r in runs %}
+    <tr>
+      <td>{{ r.display_label }}</td>
+      <td class="num">{% if r.run_id in paired %}{{ paired[r.run_id]|difference }}{% else %}reference{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted">The paired difference is the agent's accuracy minus the other system's on the questions both were graded on, in percentage points. Its interval resamples whole companies, the same companies for both systems.</p>
+{% endmacro %}
+
+{% macro table_notes() %}
+<p class="muted">"Without documents" means the model answers from memory and is given no filing text.
+Answered is the share of questions answered rather than declined. Passed code check is the share of answered questions whose quotes were all found on their cited pages and whose final number was traced to those quotes (or that gave no final number). The baselines log no calculations, so a computed number from a baseline cannot be traced; the no-documents system is not checked. Cost includes grading.</p>
 {% endmacro %}

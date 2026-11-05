@@ -1,0 +1,14 @@
+<h2>Historical context</h2>
+<p>These are results from the FinanceBench paper's own setups (Islam et al., 2023, arXiv:2311.11944),
+reported for GPT-4-Turbo and graded by humans on November 2023 models. They are not comparable with the numbers
+above: different models, human grading instead of code and model grading, and different retrieval setups.</p>
+<div class="scroll">
+<table class="compact">
+  <thead><tr><th>Setup</th><th class="num">Accuracy</th></tr></thead>
+  <tbody>
+  {% for name, value in paper %}
+    <tr><td>{{ name }}</td><td class="num">{{ value }}%</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>

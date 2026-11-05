@@ -24,11 +24,24 @@ h2 { font-size: 1.2rem; margin: 2rem 0 .5rem; }
 .lede { font-size: 1.1rem; }
 .muted { color: var(--muted); font-size: .9rem; }
 ul.plain { list-style: none; padding: 0; }
-.scroll { overflow-x: auto; }
+.scroll {
+  overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--bg) 30%, transparent) left center / 2rem 100% no-repeat local,
+    linear-gradient(to left, var(--bg) 30%, transparent) right center / 2rem 100% no-repeat local,
+    linear-gradient(to right, rgba(0, 0, 0, .28), transparent) left center / .7rem 100% no-repeat scroll,
+    linear-gradient(to left, rgba(0, 0, 0, .28), transparent) right center / .7rem 100% no-repeat scroll;
+}
 table { border-collapse: collapse; width: 100%; font-size: .93rem; }
 th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--line);
   vertical-align: top; }
-.num { text-align: right; white-space: nowrap; }
+.num { text-align: right; }
+.nowrap { white-space: nowrap; }
+table.compact { width: auto; min-width: 22rem; }
+.headline { font-size: 1.2rem; font-weight: 600; line-height: 1.4; margin: 1rem 0 .25rem; }
+.final-value { font-weight: 600; }
+.legend { margin-top: 1rem; }
+th { vertical-align: bottom; }
 svg.chart { width: 100%; height: auto; margin: .5rem 0 1rem; }
 svg.chart .bar { fill: var(--bar); }
 svg.chart .whisker { stroke: var(--fg); stroke-width: 1.5; fill: none; }
@@ -39,6 +52,7 @@ section.system { background: var(--card); border: 1px solid var(--line); border-
   padding: .25rem 1rem 1rem; margin: 1.25rem 0; }
 .badge { font-size: .75rem; padding: .1rem .5rem; border: 1px solid var(--line);
   border-radius: 99px; vertical-align: middle; }
+.badge.declined { color: var(--muted); }
 .badge.correct { color: var(--good); border-color: var(--good); }
 .badge.incorrect, .badge.error { color: var(--bad); border-color: var(--bad); }
 blockquote { margin: .75rem 0; padding: .25rem 0 .25rem .9rem; border-left: 3px solid var(--line); }
@@ -52,3 +66,9 @@ ol.trace { padding-left: 1.2rem; }
 code { font: .85rem ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
 footer.site { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--line);
   margin-top: 3rem; }
+@media (max-width: 40rem) {
+  .scroll table { min-width: 36rem; }
+  .scroll table.compact { min-width: 0; }
+  main.question h1 { font-size: 1.25rem; }
+  h1 { font-size: 1.5rem; }
+}

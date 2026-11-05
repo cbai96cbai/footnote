@@ -46,7 +46,8 @@ def test_index_shows_each_development_version(tmp_path: Path, inject: dict[str, 
     assert "Exploratory development runs" in index
     for v in ("agent-1", "agent-2"):
         assert f"Footnote agent {v}</text>" in index  # chart label
-        assert f"<td>{v}</td>" in index  # table row
+        assert f"<td>Footnote agent {v}</td>" in index  # table row
+        assert f"version {v}, dev split" in index  # caption line
 
 
 def _test_split(root: Path, agent: list[str], base: list[str]) -> None:
