@@ -3,7 +3,7 @@
 An agent that answers questions about SEC 10-K filings and shows the exact quote behind every
 answer.
 
-Live site: https://cbai96cbai.github.io/footnote/ (goes live when the repository is published)
+Live site: https://cbai96cbai.github.io/footnote/
 
 ![A 25-second walkthrough of the results site: the headline result, the question list, one answer with its quotes, and the failures page](docs/footnote.gif)
 
