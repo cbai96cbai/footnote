@@ -34,7 +34,7 @@ def test_trace_has_no_raw_page_text(results: Path, tmp_path: Path, inject: dict[
     out = tmp_path / "out"
     build(results, out, inject)
     html = (out / "q" / "q1.html").read_text()
-    assert "read_page" in html and "found 3 pages" in html
+    assert "read page" in html and "found 3 pages" in html
     trace = html.split('<ol class="trace">')[1].split("</ol>")[0]
     assert "word " * 41 not in trace  # step summaries are cut at 200 characters
 
@@ -61,7 +61,7 @@ def test_health_care_excluded_from_every_example_list(
     failures = (out / "failures.html").read_text()
     assert "ACME-NOTE" in failures and "PFIZER-NOTE" not in failures
     assert "q/q3.html" not in failures and "q/q3.html" not in (out / "index.html").read_text()
-    assert (out / "q" / "q3.html").exists()
+    assert not (out / "q" / "q3.html").exists()  # scored, never shown
 
 
 def test_build_is_deterministic(results: Path, tmp_path: Path, inject: dict[str, Any]) -> None:
@@ -84,8 +84,10 @@ def test_source_link_adds_edgar_search_when_not_ok(
     assert "https://www.sec.gov/cgi-bin/browse-edgar?company=Acme" in acme
     assert "type=10-K" in acme
     assert "page 5 of the benchmark PDF" in acme
-    ok_page = (out / "q" / "q3.html").read_text()
-    assert "https://p.test/x" in ok_page and "EDGAR search" not in ok_page
+    inject["link_status"] = {"ACME_2022_10K": {"ok": True, "status": 200}}
+    build(results, out, inject)
+    ok_page = (out / "q" / "q1.html").read_text()
+    assert 'href="https://a.test/x"' in ok_page and "EDGAR search" not in ok_page
 
 
 def test_pages_exist_and_labels(results: Path, tmp_path: Path, inject: dict[str, Any]) -> None:

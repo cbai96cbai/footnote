@@ -10,7 +10,30 @@ successes so the scores can be checked against them.</p>
   <p class="muted">{{ it.page.doc.company }}, {{ it.system }}</p>
   <p>{{ it.note|excerpt }}</p>
 </section>
-{% else %}
-<p>No failure write-ups have been published yet.</p>
 {% endfor %}
+{% for t in tables %}
+<h2>{{ t.label }}</h2>
+{% if t.rows %}
+<div class="scroll">
+<table class="failures">
+  <thead><tr><th>Question</th><th>Company</th><th>Type</th><th>What happened</th></tr></thead>
+  <tbody>
+  {% for row in t.rows %}
+    <tr>
+      <td><a href="q/{{ row.page.q.id }}.html">{{ row.page.q.question|excerpt(110) }}</a></td>
+      <td>{{ row.page.doc.company }}</td>
+      <td class="nowrap">{{ row.type }}</td>
+      <td>{{ row.reason }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p>No failed questions in this run.</p>
+{% endif %}
+{% endfor %}
+{% if not has_runs %}
+<p>No results have been published yet.</p>
+{% endif %}
 {% endblock %}

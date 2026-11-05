@@ -37,9 +37,53 @@ class Run:
         """The label, with the version for exploratory runs (several may exist per system)."""
         return self.label if self.split == "test" else f"{self.label} {self.version}"
 
+    @property
+    def page_label(self) -> str:
+        """Names the run on a question page, e.g. "Footnote agent · development run (agent-2)"."""
+        if self.split == "test":
+            return f"{self.label} · test run"
+        kind = "development" if self.split == "dev" else self.split
+        return f"{self.label} · {kind} run" + (f" ({self.version})" if self.version else "")
+
+    @property
+    def answered_without_final_value(self) -> int:
+        """Answers that gave no final number: the summary's count, else counted from predictions."""
+        recorded = self.summary.get("answered_without_final_value")
+        return recorded if recorded is not None else _count_without_final_value(self)
+
+
+def _count_without_final_value(r: Run) -> int:
+    return sum(
+        p.status == "answered" and p.answer is not None and p.answer.final_value is None
+        for p in r.predictions.values()
+    )
+
 
 def _order(system: str) -> tuple[int, str]:
     return (ORDER.index(system) if system in ORDER else len(ORDER), system)
+
+
+SHORT = {
+    "agent": "Agent",
+    "plain-retrieval": "Plain",
+    "long-context": "Long context",
+    "no-docs": "No docs",
+}
+
+
+def run_tags(runs: list[Run]) -> dict[str, str]:
+    """A short name per run id for badges: the system, plus the version or split when a system
+    has more than one published run."""
+    count: dict[str, int] = {}
+    for r in runs:
+        count[r.system] = count.get(r.system, 0) + 1
+    tags = {}
+    for r in runs:
+        tag = SHORT.get(r.system, r.label)
+        if count[r.system] > 1:
+            tag += " (test)" if r.split == "test" else f" ({r.version or r.split})"
+        tags[r.run_id] = tag
+    return tags
 
 
 def _published_ids(results_dir: Path) -> list[str]:

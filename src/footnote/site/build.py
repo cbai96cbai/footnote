@@ -9,16 +9,17 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoes
 
 from footnote.benchmark import AgentQuestion, DocInfo, doc_info, load_questions
 from footnote.eval.gold import Gold, load_gold
-from footnote.site import filters
+from footnote.site import filters, wording
 from footnote.site.chart import Bar, accuracy_chart
-from footnote.site.links import edgar_fallback, load_link_status
+from footnote.site.headline import headline
+from footnote.site.links import load_link_status
 from footnote.site.output import MARKER, replace_output
-from footnote.site.paired import Difference, paired_differences
+from footnote.site.pages import failure_tables, question_pages, question_rows
+from footnote.site.paired import paired_differences
 from footnote.site.runs import Run, load_runs, split_runs
 
 __all__ = ["MARKER", "build_site"]
 HERE = Path(__file__).parent
-HIDDEN_SECTOR = "Health Care"
 PAPER = [
     ("Shared vector store", 19),
     ("One vector store per filing", 50),
@@ -37,7 +38,12 @@ def _env() -> Environment:
     )
     env.filters["excerpt"] = filters.excerpt
     env.filters["step_arguments"] = filters.step_arguments
-    env.filters["quote_missing"] = filters.quote_missing
+    env.filters["problem_notes"] = wording.problem_notes
+    env.filters["shown_steps"] = wording.shown_steps
+    env.filters["final_value_line"] = wording.final_value_line
+    env.filters["decline_headline"] = wording.decline_headline
+    env.filters["filing"] = wording.filing
+    env.filters["form"] = wording.form
     env.filters["final_value_only"] = filters.final_value_only
     env.filters["difference"] = filters.difference
     env.filters["pct"] = filters.pct
@@ -56,24 +62,6 @@ def _chart(runs: list[Run], title: str) -> Any:
         ci = r.summary.get("ci95")
         bars.append(Bar(r.display_label, r.summary.get("accuracy"), *(ci if ci else (None, None))))
     return accuracy_chart(bars, title)
-
-
-def _question_page(
-    q: AgentQuestion, runs: list[Run], gold: Gold, doc: DocInfo, link_status: dict[str, Any]
-) -> dict[str, Any]:
-    entries = []
-    for r in runs:
-        p, v = r.predictions.get(q.id), r.verdicts.get(q.id)
-        if p is not None and v is not None:
-            entries.append({"run": r, "label": r.display_label, "pred": p, "verdict": v})
-    return {
-        "q": q,
-        "gold": gold,
-        "doc": doc,
-        "source": doc.doc_link,
-        "edgar": edgar_fallback(doc, link_status),
-        "entries": entries,
-    }
 
 
 def build_site(
@@ -96,39 +84,24 @@ def build_site(
 
     runs = load_runs(results_dir)
     test, dev = split_runs(runs)
-    shown = test or dev
-    ids = sorted({i for r in shown for i in r.predictions if i in by_id and i in gold})
-    pages = {
-        i: _question_page(by_id[i], shown, gold[i], docs[by_id[i].doc_name], link_status)
-        for i in ids
+    published = question_pages(runs, by_id, gold, docs, link_status)
+    pages = published.pages
+    site = {
+        "test": test,
+        "dev": dev,
+        "paired": paired_differences(test, by_id),
+        "pages": pages,
+        "rows": question_rows(pages, runs),
+        "hidden": published.hidden,
+        "featured": [pages[i] for i in featured_ids if i in pages],
+        "curated": [{**f, "page": pages[f["id"]]} for f in failure_list if f.get("id") in pages],
+        "failure_tables": failure_tables(runs, pages, gold),
+        "has_runs": bool(runs),
     }
-
-    # a Health Care company stays in the scores and on its own page, never in a curated example list
-    def curated(ids: list[str]) -> list[str]:
-        return [i for i in ids if i in pages and pages[i]["doc"].gics_sector != HIDDEN_SECTOR]
-
-    featured_pages = [pages[i] for i in curated(featured_ids)]
-    kept = set(curated([f.get("id", "") for f in failure_list]))
-    failure_items = [{**f, "page": pages[f["id"]]} for f in failure_list if f.get("id") in kept]
-
-    paired = paired_differences(test, by_id)
-    replace_output(
-        out_dir,
-        lambda target: _write_pages(
-            target, test, dev, paired, pages, featured_pages, failure_items
-        ),
-    )
+    replace_output(out_dir, lambda target: _write_pages(target, site))
 
 
-def _write_pages(
-    out_dir: Path,
-    test: list[Run],
-    dev: list[Run],
-    paired: dict[str, Difference | None] | None,
-    pages: dict[str, dict[str, Any]],
-    featured_pages: list[dict[str, Any]],
-    failure_items: list[dict[str, Any]],
-) -> None:
+def _write_pages(out_dir: Path, site: dict[str, Any]) -> None:
     env = _env()
     shutil.copy(HERE / "style.css", out_dir / "style.css")
     (out_dir / "q").mkdir(exist_ok=True)
@@ -137,19 +110,30 @@ def _write_pages(
         html = env.get_template(template).render(root=root, **ctx)
         (out_dir / rel).write_text(html, encoding="utf-8")
 
+    test, dev = site["test"], site["dev"]
     write(
         "index.html",
         "index.html",
         "",
         test=test,
         dev=dev,
-        paired=paired,
+        paired=site["paired"],
+        headline=headline(test or dev),
         test_chart=_chart(test, "Accuracy on the test split") if test else None,
         dev_chart=_chart(dev, "Accuracy on development runs") if dev else None,
         paper=PAPER,
-        featured=featured_pages,
+        featured=site["featured"],
     )
-    for i, page in pages.items():
+    for i, page in site["pages"].items():
         write(f"q/{i}.html", "question.html", "../", **page)
-    write("failures.html", "failures.html", "", items=failure_items)
+    write("questions.html", "questions.html", "", rows=site["rows"], hidden=site["hidden"])
+    write(
+        "failures.html",
+        "failures.html",
+        "",
+        items=site["curated"],
+        tables=site["failure_tables"],
+        has_runs=site["has_runs"],
+    )
     write("about.html", "about.html", "")
+    write("404.html", "not_found.html", "/")

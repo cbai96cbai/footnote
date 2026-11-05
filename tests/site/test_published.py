@@ -45,13 +45,13 @@ def test_rebuild_drops_pages_of_removed_runs(
 ) -> None:
     out = tmp_path / "out"
     build_site(results, out, **inject)
-    assert (out / "q" / "q3.html").exists()
+    assert (out / "q" / "q2.html").exists()
     write_run(results, "agent-dev-2", "agent", "dev", ["q1"])
     write_run(results, "nodocs-dev-2", "no-docs", "dev", ["q1"])
     publish(results, ["agent-dev-2", "nodocs-dev-2"])
     build_site(results, out, **inject)
     assert (out / "q" / "q1.html").exists()
-    assert not (out / "q" / "q3.html").exists()
+    assert not (out / "q" / "q2.html").exists()
     assert (out / MARKER).exists()
 
 

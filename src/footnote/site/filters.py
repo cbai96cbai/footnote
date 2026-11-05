@@ -36,11 +36,6 @@ def step_arguments(arguments: object) -> str:
     return excerpt(json.dumps(arguments, sort_keys=True, default=str), STEP_LIMIT)
 
 
-def quote_missing(problems: list[str]) -> bool:
-    """True when the check reported a quote that is not on its cited page."""
-    return any(p.startswith("quote not found") for p in problems)
-
-
 def final_value_only(problems: list[str]) -> bool:
     """True when every problem is about the final value, so the quotes themselves were found."""
     return bool(problems) and all(p.startswith("final value") for p in problems)
