@@ -1,13 +1,44 @@
 # footnote
 
-An agent that answers questions about SEC filings and cites the quotes behind its answer.
+An agent that answers questions about SEC 10-K filings and shows the exact quote behind every
+answer.
 
-Recording: (added when the site is published)
-Live site: (link added when the site is published)
+Live site: https://cbai96cbai.github.io/footnote/ (goes live when the repository is published)
 
-Footnote answers questions about SEC filings from the FinanceBench open sample,
-then measures itself against simpler systems that use the same model, on a test split that is run
-once.
+## Result
+
+On 57 held-out test questions about 11 companies, long context is the most accurate system (91%).
+The agent scores 75% and gives an answer only when its quotes, and its final number when it gives
+one, pass the code check; 11% of long-context answers pass the same check. The agent costs 28% as
+much per question as long context. It is well ahead of plain retrieval and of answering with no
+documents. Each system was run once, on code frozen beforehand, with the same model, the same
+filing per question and the same grading.
+
+| System | Accuracy (95% interval) | Agent minus this system (paired) | Answered | Passed code check | Cost per question | Time per question |
+| :- | :-: | :-: | :-: | :-: | :-: | :-: |
+| Long context | 91.2% (83.7 to 98.1) | -15.8 pts (-26.3 to -6.7) | 98.2% | 10.7% | $0.0294 | 21.8 s |
+| Agent | 75.4% (66.7 to 83.3) | reference | 91.2% | 100.0% | $0.0082 | 29.4 s |
+| Plain retrieval | 49.1% (29.6 to 62.7) | +26.3 pts (+12.3 to +46.9) | 68.4% | 38.5% | $0.0020 | 22.0 s |
+| No documents | 42.1% (23.3 to 60.8) | +33.3 pts (+14.0 to +53.1) | 91.2% | n/a | $0.0011 | 21.5 s |
+
+Intervals resample whole companies, because questions about one company are not independent. The
+paired difference is the agent's accuracy minus the other system's on the same questions, 10,000
+resamples (`uv run footnote compare test-agent test-longctx`).
+
+- **Passed code check** is the share of answered questions whose quotes were all found on their
+  cited pages and whose final number traced to those quotes. An answer with no final number has
+  only its quotes checked: 17 of the agent's 52 answers gave none. The agent's rate is 100% by
+  construction, because it answers only once the check passes.
+- The agent logs its calculations and retries a rejected answer, while the baselines are checked
+  afterwards without logged calculations. So the pass rate describes how each system works, not
+  which answers are right; accuracy does that.
+- Time is the last attempt per question, measured while the four runs shared one rate limit.
+  Three questions were re-run after rate-limit errors and only the final attempt's time is counted.
+  Cost includes every attempt and the grading call.
+- Long context read only part of the filing for 4 of the 57 questions (3 filings): they were
+  longer than its 200,000-token window.
+- Total spend: about $10.83 of Azure OpenAI calls for every development and test run (from the
+  local spend ledger, which is not in the repository).
 
 - **Answers with quotes.** Each answer cites the filing page and the quotes behind it. A code
   check confirms the quotes appear on the cited pages and that the final number is a rounding of a
@@ -17,14 +48,41 @@ once.
   in a header. The final value may be scaled by a power of 1,000 for money, counts and other
   units; percents and ratios take no scale. An answer may give no final number (for example
   when the filing says there were none); then only its quotes are checked.
-- **Compared on equal terms.** The agent is scored against three baselines (no documents, plain
-  retrieval, long context) with the same model and the same grading; the systems that read
-  documents all get the same filing.
-- **Uncertainty.** Accuracy comes with a 95% interval that resamples whole companies, plus
-  answer coverage, cost per question and latency. A static site shows each answer, its
-  trace and the grader's verdict, including failures. Citations are shown only for answers whose
-  quote check passed; otherwise the page says the quote was not found in the filing, or that it
-  was not checked.
+- **A static site** shows each answer, its trace and the grader's verdict, including failures. A
+  citation is shown only when its quote check passed; otherwise the page says "Quote not confirmed
+  on the cited page" or "Cited page does not match", or that the answer was not checked.
+
+## How it got here
+
+The 93 development questions guided the agent; the test split was untouched until the code was
+frozen. Scores below are correct answers out of 93.
+
+- **Version 1** (a 30-question checkpoint, not in `results/`): 16 of 30, with 9 declines, most
+  traced to the harness rather than to reading the filing (its number check rejected multi-step
+  calculations, and the turn budget ran out before the retry); one was the model's own decision and
+  one came from unclear quoting rules.
+- **Version 2**: 67 and 62 (two runs). Chained calculations traced, the last two replies reserved
+  for submitting, a search parameter the model misused removed, clearer quote rules.
+- **Version 3**: 61 and 60. The retry was allowed to calculate. It made things worse: 16 to 17
+  questions per run failed once and never resubmitted, found by comparing two runs of each version.
+- **Version 4** (frozen, then run on the test split): 69 and 68. Version 3 without that retry
+  change, field-level feedback on malformed answers, and fractional powers so growth rates can be
+  computed.
+
+Between two runs of the same version, 17 to 23 of the 93 questions changed between correct and
+not correct (version 2: 19, version 3: 23, version 4: 17). A one-run difference of a few questions
+is noise, which is why the test split was run once per system, after the freeze, and intervals are
+reported instead of a single score.
+
+## Checking the grader
+
+Answers that are not a single number go to a grader model. To check it, 32 test answers (8 per
+system, 21 distinct questions) were labeled blind by another model, `claude-opus-5-5`, against the
+same rubric (`results/reference_labels.jsonl`). The sample is LLM-graded correct and incorrect
+answers only (numeric-graded answers and declines excluded), stratified by verdict and failure
+type, seed 7. The two agreed on 28 of 32. Of the 4 disagreements, 3 were the grader marking
+incorrect what the reference marked correct and 1 the reverse; two of the four are the same
+question in two systems. This is agreement between two models, not with a person.
 
 ## Architecture
 
@@ -42,33 +100,22 @@ flowchart LR
 
 `tests/test_import_boundaries.py` statically checks imports (it parses the source for import statements) and fails if any upstream package imports `eval` or touches the raw benchmark rows. It does not detect dynamic imports.
 
-## Results
-
-Not yet available. The table is filled in after the single frozen run of each system on the test
-split (57 questions, 11 companies). No number in this table is a measurement yet.
-
-| System | Accuracy (95% interval, company-clustered) | Agent minus this system (paired 95% interval) | Answer coverage | Cost per question | Mean latency |
-| :- | :-: | :-: | :-: | :-: | :-: |
-| Without documents | - | — | - | - | - |
-| Plain retrieval | - | — | - | - | - |
-| Long context | - | — | - | - | - |
-| Agent | - | reference | - | - | - |
-
-The paired difference is the agent's accuracy minus the other system's on the questions both were
-graded on, with an interval that resamples whole companies (the same ones for both systems).
-
-Historical context only, from the FinanceBench paper (Islam et al., arXiv:2311.11944), GPT-4-Turbo,
-November 2023, graded by humans: 19% with one shared vector store, 50% with one store per filing,
-79% with long context, 85% when given the evidence pages. Different models, human grading and retrieval setups, so
-these are not a baseline for the table above.
-
 ## Failure examples
 
-Added from the real test run, sorted by type: declined, unsupported, retrieval miss, wrong number,
-reasoning, error (`footnote failures` produces the per-run list). Failures are published, not
-selected away. Failure types differ by system: "unsupported" applies only to the agent (the
-baselines are checked afterwards without a calculator, and the no-documents system is not checked),
-and "retrieval miss" applies only to systems that read pages.
+Real failures from the test runs, published rather than selected away; the
+[failures page](https://cbai96cbai.github.io/footnote/failures.html) has eight, and each run's
+full list.
+
+- **Declined.** On a cash conversion cycle the agent never calculated the payables term, and its
+  two answers (17.6) failed the check, so it declined; long context got it right.
+- **Passed the check, still wrong.** On Boeing's effective tax rate the agent quoted
+  "(0.6) % 14.8 %", reported -0.6% and 14.8%, and passed. The reference gives 0.62% and -14.76%.
+- **Retrieval miss.** Plain retrieval never retrieved the pages with the dividend and net-earnings
+  figures for a retention ratio and answered 56.15% from other figures; the reference is 0.54.
+
+Failure types differ by system: "unsupported" applies only to the agent (the baselines are checked
+afterwards without a calculator, and the no-documents system is not checked), and "retrieval miss"
+applies only to systems that read pages. `footnote failures` lists each run's failures by type.
 
 ## Design decisions
 
@@ -107,7 +154,8 @@ After the agent submits, code checks two things.
    power of 1,000 (thousands, millions, billions) for the units usd, count and other; percent and
    ratio take no scale. A percent may also be a calculation result times 100, never a quoted number times 100.
    An answer may give no final number (for example when the filing says there were none); then only
-   its quotes are checked. The baselines have no logged calculations.
+   its quotes are checked. On the test split 17 of the agent's 52 answers gave none. The
+   baselines have no logged calculations.
 
 It does not check numbers in the explanation text. It does not prove a number means what the answer
 says: a quoted figure can be in the wrong units or for the wrong period and still pass. The grader
@@ -159,11 +207,13 @@ questions, of which 30 form the `gate` set for pipeline checks) and `test` (57).
 
 ## Limitations
 
-- 57 test questions from 11 companies. Intervals are wide, and a difference inside them is not
+- 57 test questions from 11 companies, so intervals are wide, and a difference inside them is not
   claimed.
-- One benchmark, one model family for the agent, and a grader that is itself a model and can be
-  wrong in both directions. Grader agreement checked against AI-written reference labels is an
-  AI-reference estimate, not a human agreement rate.
+- Long context read only part of the filing for 4 of the 57 questions (3 filings), which were
+  longer than its window.
+- The grader is a model, and the reference labels used to check it are also a model's. The 28 of 32
+  agreement is between two models, not with a person.
+- One benchmark and one model family for the agent.
 - Equal document access hides the harder problem of finding the right filing.
 - The no-documents result measures performance without documents, not memorization. The benchmark
   has been public since 2023 and may be in training data.
