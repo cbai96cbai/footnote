@@ -195,9 +195,10 @@ spaces. The grounding check runs against our extracted text, not the benchmark's
 ## Run locally
 
 macOS or Linux (on Windows, use WSL: run files are locked with `fcntl`), Python 3.12 or 3.13
-and [uv](https://docs.astral.sh/uv/). The default tests download the pinned FinanceBench
-questions from Hugging Face; the `corpus` tests also need the filing PDFs and the `live` tests
-call Azure OpenAI, so both are excluded by default.
+and [uv](https://docs.astral.sh/uv/). The default tests run offline: the first run fetches
+tiktoken's tokenizer file before any test starts, and a test that opens a network connection
+fails. The `corpus` tests download the pinned FinanceBench questions from Hugging Face and need the
+filing PDFs, and the `live` tests call Azure OpenAI, so both are excluded by default.
 
 ```
 uv sync

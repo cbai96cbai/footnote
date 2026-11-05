@@ -1,10 +1,12 @@
 import socket
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fpdf import FPDF
+
+from footnote.llm.tokens import count_text_tokens
 
 
 def make_pdf(path: Path, pages: list[str]) -> Path:
@@ -17,6 +19,12 @@ def make_pdf(path: Path, pages: list[str]) -> Path:
     return path
 
 
+@pytest.fixture(scope="session", autouse=True)
+def tokenizer() -> None:
+    """Setup, before any test runs offline: tiktoken fetches its data file once, then caches it."""
+    count_text_tokens("")
+
+
 @pytest.fixture(autouse=True)
 def offline(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Tests run offline unless marked live or corpus: any network connection fails the test."""
@@ -24,16 +32,18 @@ def offline(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> 
         yield
         return
     attempts: list[object] = []
-    real_connect = socket.socket.connect
 
-    def connect(self: socket.socket, address: Any) -> None:
-        if self.family == socket.AF_UNIX:
-            return real_connect(self, address)
-        attempts.append(address)
-        raise OSError(f"network access in a test not marked live or corpus: {address}")
+    def refuse(real: Callable[[socket.socket, Any], Any]) -> Callable[[socket.socket, Any], Any]:
+        def call(self: socket.socket, address: Any) -> Any:
+            if self.family == socket.AF_UNIX:
+                return real(self, address)
+            attempts.append(address)
+            raise OSError(f"network access in a test not marked live or corpus: {address}")
 
-    monkeypatch.setattr(socket.socket, "connect", connect)
-    monkeypatch.setattr(socket.socket, "connect_ex", connect)
+        return call
+
+    monkeypatch.setattr(socket.socket, "connect", refuse(socket.socket.connect))
+    monkeypatch.setattr(socket.socket, "connect_ex", refuse(socket.socket.connect_ex))
     yield
     assert not attempts, f"the test tried to reach the network: {attempts}"
 
