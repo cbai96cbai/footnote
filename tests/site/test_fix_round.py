@@ -216,3 +216,12 @@ def test_the_front_page_link_states_the_hidden_health_care_count(
     publish(root, ["agent-dev-1"])
     other = " ".join((_site(root, tmp_path / "r2", inject) / "index.html").read_text().split())
     assert "Browse the questions</a>" in other
+
+
+def test_code_grading_reads_answer_key_not_gold() -> None:
+    from footnote.site.wording import grader_note
+
+    assert grader_note("gold '1.73' vs final value 1.73 ratio") == (
+        "answer key '1.73' vs final value 1.73 ratio"
+    )
+    assert grader_note("The answer matches the reference.") == "The answer matches the reference."

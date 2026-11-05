@@ -49,6 +49,7 @@ def _env() -> Environment:
     env.filters["form"] = wording.form
     env.filters["pack_note"] = wording.pack_note
     env.filters["own_note"] = wording.own_note
+    env.filters["grader_note"] = wording.grader_note
     env.filters["final_value_only"] = filters.final_value_only
     env.filters["difference"] = filters.difference
     env.filters["pct"] = filters.pct

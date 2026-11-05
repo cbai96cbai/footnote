@@ -114,3 +114,9 @@ def step_text(step: Step, name: str) -> str:
         n = len(step.arguments.get("citations") or [])
         return f"submitted an answer with {n} citation{'' if n == 1 else 's'}"
     return step_arguments(step.arguments)
+
+
+def grader_note(rationale: str) -> str:
+    """The grader's recorded reason in plain words: code grading records the reference answer as
+    "gold", which the site calls the answer key."""
+    return "answer key " + rationale[5:] if rationale.startswith("gold ") else rationale

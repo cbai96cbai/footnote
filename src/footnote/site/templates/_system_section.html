@@ -18,7 +18,7 @@
   <p class="muted">No answer ({{ p.status }}).</p>
   {% endif %}
   {% set grader = {"numeric": "Graded by code", "llm": "Graded by a model", "none": "Not graded"}[e.verdict.method] %}
-  <p class="muted">{{ grader }}: {{ e.verdict.rationale|excerpt }}</p>
+  <p class="muted">{{ grader }}: {{ e.verdict.rationale|grader_note|excerpt }}</p>
   {% if p.answer and not declined %}
   {% if p.answer.final_value is none %}
   {% if p.verify_ok is none %}
