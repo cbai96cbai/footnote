@@ -132,23 +132,15 @@ def test_the_unit_other_has_no_label() -> None:
     )
 
 
-def test_the_real_reference_answer_is_shown_in_full(tmp_path: Path) -> None:
+def test_a_long_reference_answer_is_shown_in_full(
+    results: Path, tmp_path: Path, inject: dict[str, Any]
+) -> None:
     from html import unescape
 
-    from footnote.benchmark import load_questions
-    from footnote.eval.gold import load_gold
-
-    gold = load_gold()["financebench_id_00995"].answer
+    gold = inject["gold"]["q1"].answer
     assert len(gold) > 400
-    q = next(q for q in load_questions() if q.id == "financebench_id_00995")
-    root = tmp_path / "results"
-    write_run(root, "agent-dev-1", "agent", "dev", [q])
-    publish(root, ["agent-dev-1"])
-    inject = {"questions": [q], "gold": {q.id: load_gold()[q.id]}, "link_status": {}}
-    out = tmp_path / "out"
-    build_site(root, out, **inject)
-    page = unescape((out / "q" / f"{q.id}.html").read_text())
-    assert gold in " ".join(page.split()) or " ".join(gold.split()) in " ".join(page.split())
+    page = unescape((_site(results, tmp_path, inject) / "q" / "q1.html").read_text())
+    assert " ".join(gold.split()) in " ".join(page.split())
     assert "…" not in page.split("Reference answer")[1].split("</p>")[0]
 
 
