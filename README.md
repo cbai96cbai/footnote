@@ -5,6 +5,8 @@ answer.
 
 Live site: https://cbai96cbai.github.io/footnote/ (goes live when the repository is published)
 
+![A 25-second walkthrough of the results site: the headline result, the question list, one answer with its quotes, and the failures page](docs/footnote.gif)
+
 ## Result
 
 On 57 held-out test questions about 11 companies, long context is the most accurate system (91%).
