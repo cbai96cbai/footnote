@@ -81,6 +81,36 @@ def test_quote_longer_than_400_characters_fails() -> None:
     assert ok
 
 
+def test_too_long_message_gives_the_length_in_words_and_the_fix() -> None:
+    page = "Net sales 1,577 " + "x " * 300
+    _, problems = check("Sales 1,577.", [page], page)
+    n = len(page)
+    assert problems == [
+        f"quote too long ({n} > 400 characters, about 60 words): "
+        "cut it to the sentence or table row that holds the figure"
+    ]
+
+
+def test_a_quote_both_too_long_and_not_on_its_page_gets_both_problems() -> None:
+    quote = "Net sales 1,577 " + "y " * 300
+    _, problems = check("Sales 1,577.", [quote], "Net sales 1,577 " + "x " * 300)
+    assert len(problems) == 2
+    assert problems[0].startswith(f"quote too long ({len(quote)} > 400 characters")
+    assert problems[1].startswith("quote not found on page 0: 'Net sales 1,577 y y")
+    _, problems = verify_answer(ans("x", [quote]), {1: quote}, "?", [])
+    assert problems[0].startswith("quote too long")
+    assert problems[1] == "cited page 0 is not in the filing; this exact text is on page_index 1"
+
+
+def test_untraced_final_value_says_what_would_fix_it() -> None:
+    ok, problems = fv_check("7.9", "percent", ["Net sales 1,577"], [], page="Net sales 1,577")
+    assert not ok and problems == [
+        "final value 7.9 is not a correct rounding of a number in a cited quote or of a "
+        "calculate result: compute it with calculate from cited figures, then submit that "
+        "result rounded"
+    ]
+
+
 def test_oversized_or_deeply_nested_expressions_are_rejected_not_crashed() -> None:
     for bad in ("-" * 5000 + "1", "1" + "+1" * 20000, "(" * 150 + "1" + ")" * 150):
         with pytest.raises(ValueError):

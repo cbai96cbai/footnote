@@ -117,7 +117,7 @@ def test_citation_that_fails_its_own_check_feeds_nothing() -> None:
         ok, problems = verify_answer(a, pages, "What?", calcs)
         assert not ok
         assert any(p.startswith(("quote", "cited page")) for p in problems)
-        assert any(p.startswith("final value not supported") for p in problems)
+        assert any(p.startswith("final value 3.46 is not a correct rounding") for p in problems)
 
 
 def test_a_valid_chain_never_rescues_a_separately_fabricated_citation() -> None:

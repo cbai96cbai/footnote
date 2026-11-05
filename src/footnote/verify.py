@@ -221,16 +221,20 @@ def verify_answer(
     )
     for c in answer.citations:
         text = pages.get(c.page_index)
-        if len(c.quote) > MAX_QUOTE_CHARS:
-            problems.append(f"quote too long ({len(c.quote)} > {MAX_QUOTE_CHARS} characters)")
-        elif text is None:
+        too_long = len(c.quote) > MAX_QUOTE_CHARS
+        if too_long:
+            problems.append(
+                f"quote too long ({len(c.quote)} > {MAX_QUOTE_CHARS} characters, about 60 words): "
+                "cut it to the sentence or table row that holds the figure"
+            )
+        if text is None:
             problems.append(
                 f"cited page {c.page_index} is not in the filing"
                 + _elsewhere(c.quote, c.page_index, pages)
             )
         elif not quote_in_page(c.quote, text):
             problems.append(_not_found(c.quote, c.page_index, pages))
-        else:
+        elif not too_long:
             cited.extend(parse_numbers(map_hyphen_marks(c.quote)))
     if not answer.declined:
         if not answer.citations:
@@ -260,4 +264,8 @@ def _final_value_problems(
         return ["final value out of range"]
     if supported:
         return []
-    return [f"final value not supported by a cited quote or calculation: {fv.value}"]
+    return [
+        f"final value {fv.value} is not a correct rounding of a number in a cited quote or of a "
+        "calculate result: compute it with calculate from cited figures, then submit that "
+        "result rounded"
+    ]
