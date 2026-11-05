@@ -40,15 +40,23 @@ resamples (`uv run footnote compare test-agent test-longctx`).
 - Total spend: about $10.83 of Azure OpenAI calls for every development and test run (from the
   local spend ledger, which is not in the repository).
 
-- **Answers with quotes.** Each answer cites the filing page and the quotes behind it. A code
-  check confirms the quotes appear on the cited pages and that the final number is a rounding of a
-  quoted number (either sign) or of a logged calculation over quoted numbers or the exact results of
-  earlier such calculations. A calculation operand, whether a quoted number or an earlier result,
-  may be scaled up by a power of 1,000 whatever the final unit, because tables state their scale
-  in a header. The final value may be scaled by a power of 1,000 for money, counts and other
-  units; percents and ratios take no scale. An answer may give no final number (for example
-  when the filing says there were none); then only its quotes are checked.
-- **A static site** shows each answer, its trace and the grader's verdict, including failures. A
+For context only: the FinanceBench paper (Islam et al., [arXiv:2311.11944](https://arxiv.org/abs/2311.11944),
+GPT-4-Turbo, November 2023, graded by people) reported 19% with one shared vector store, 50% with one
+store per filing, 79% with long context and 85% when given the evidence pages. Different models,
+grading and setups, so not a baseline for the table, but the same ordering: reading the whole filing
+beats retrieving pieces of it.
+
+## What it does
+
+- **Answers with quotes.** For each question the agent searches one filing, reads pages, does its
+  arithmetic with a calculator tool, and submits an answer with the page and the exact quotes
+  behind it. Code then checks that every quote is on its cited page and that the final number
+  traces to those quotes; the agent answers only when the check passes (details in
+  [What the grounding check proves](#what-the-grounding-check-proves)).
+- **An honest comparison.** Three baselines use the same model, the same filing and the same
+  grading: no documents, plain retrieval of the top passages, and long context (as much of the
+  filing as fits in 200,000 tokens).
+- **A static site** shows every answer, its trace and the grader's verdict, failures included. A
   citation is shown only when its quote check passed; otherwise the page says "Quote not confirmed
   on the cited page" or "Cited page does not match", or that the answer was not checked.
 
@@ -190,9 +198,9 @@ The code reads settings from the process environment only; it does not load `.en
 `.env.example` as a checklist and export the variables in your shell (for example
 `set -a; source .env; set +a`). `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY` are required.
 `FOOTNOTE_AGENT_DEPLOYMENT` and `FOOTNOTE_GRADER_DEPLOYMENT` default to `footnote-agent` and
-`footnote-grader`; `FOOTNOTE_CACHE` (PDFs and indexes) defaults to `~/.cache/footnote`. The agent
-are configured to gpt-5-mini (agent) and gpt-4.1-mini (grader) Azure OpenAI deployments, and the
-prices in the code assume those models.
+`footnote-grader`; `FOOTNOTE_CACHE` (PDFs and indexes) defaults to `~/.cache/footnote`. The code
+expects two Azure OpenAI deployments, gpt-5-mini for the agent and the baselines and gpt-4.1-mini
+for the grader; the prices in the code assume those models.
 
 ```
 uv run footnote eval --system agent --split gate --run-id agent-gate-1
