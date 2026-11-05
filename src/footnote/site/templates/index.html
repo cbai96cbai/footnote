@@ -4,7 +4,7 @@
 {% block content %}
 <h1>Results</h1>
 <p class="lede">An agent that answers questions about SEC filings and cites the quotes behind its answers.
-Code confirms the quotes appear on the cited pages and that the final number comes from them. It is scored against baselines that use the same model, on the FinanceBench open sample.
+Code confirms the quotes appear on the cited pages and, when an answer gives a final number, that the number comes from them. It is scored against baselines that use the same model, on the FinanceBench open sample.
 Intervals resample whole companies, because questions about one company are not independent.</p>
 
 {% if headline %}

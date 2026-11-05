@@ -90,6 +90,7 @@ def test_the_code_check_note_says_what_is_counted_and_why_baselines_fail_it(
     flat = " ".join(_index(results, tmp_path, inject).split())
     assert "Passed code check is the share of answered questions" in flat
     assert "found on their cited pages" in flat and "final number was traced" in flat
+    assert "an answer with no final number has only its quotes checked" in flat
     assert "baselines log no calculations" in flat and "cannot be traced" in flat
 
 

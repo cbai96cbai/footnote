@@ -52,5 +52,5 @@
 
 {% macro table_notes() %}
 <p class="muted">"Without documents" means the model answers from memory and is given no filing text.
-Answered is the share of questions answered rather than declined. Passed code check is the share of answered questions whose quotes were all found on their cited pages and whose final number was traced to those quotes (or that gave no final number). The agent answers only once its answer passes, so its rate is 100% by design; the other systems are checked after the fact. The baselines log no calculations, so a computed number from a baseline cannot be traced; the no-documents system is not checked. Cost includes grading.</p>
+Answered is the share of questions answered rather than declined. Passed code check is the share of answered questions whose quotes were all found on their cited pages and whose final number was traced to those quotes; an answer with no final number has only its quotes checked. The agent answers only once its answer passes, so its rate is 100% by design; the other systems are checked after the fact. The baselines log no calculations, so a computed number from a baseline cannot be traced; the no-documents system is not checked. Cost includes grading.</p>
 {% endmacro %}
