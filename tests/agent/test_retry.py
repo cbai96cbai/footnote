@@ -74,3 +74,14 @@ def test_the_retry_restriction_is_registered_in_the_config() -> None:
     base = hash_config(CONFIG)
     assert hash_config({**CONFIG, "retry_tool_choice": None}) != base
     assert hash_config({**CONFIG, "retry_tools": ["submit_answer"]}) != base
+
+
+def test_the_agent_hash_differs_from_the_version_2_shape() -> None:
+    from footnote.systems import hash_config
+
+    older = {k: v for k, v in CONFIG.items() if not k.startswith("retry_")}
+    older = {**older, "version": "2", "verify_version": "2"}
+    assert CONFIG["version"] == "3" and CONFIG["verify_version"] == "3"
+    assert hash_config(older) != hash_config(CONFIG)
+    for key in ("version", "verify_version"):
+        assert hash_config({**CONFIG, key: "2"}) != hash_config(CONFIG)
