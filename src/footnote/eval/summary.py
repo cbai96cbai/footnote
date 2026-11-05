@@ -86,6 +86,9 @@ def build_summary(
         "accuracy": correct / n_graded if n_graded else None,
         "ci95": ci,
         "coverage": len(answered) / n,
+        "answered_without_final_value": sum(
+            p.answer is not None and p.answer.final_value is None for p in answered
+        ),
         "declined": sum(p.status == "declined" for p in ps),
         "errors": sum(p.status == "error" for p in ps),
         "cost_usd": float(cost),

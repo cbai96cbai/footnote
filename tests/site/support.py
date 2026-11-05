@@ -3,7 +3,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from footnote.answers import AgentAnswer, Citation
+from footnote.answers import AgentAnswer, Citation, FinalValue
 from footnote.benchmark import AgentQuestion, DocInfo
 from footnote.eval.gold import Gold
 from footnote.eval.grade import Verdict
@@ -42,18 +42,20 @@ def prediction(
     page_index: int = 4,
     verify_ok: bool | None = True,
     problems: list[str] | None = None,
+    final_value: FinalValue | None = None,
+    status: str = "answered",
 ) -> Prediction:
     ans = AgentAnswer(
         answer=f"{system} answer",
-        final_value=None,
-        declined=False,
+        final_value=final_value,
+        declined=status == "declined",
         decline_reason=None,
         citations=[Citation(page_index=page_index, quote=quote)],
     )
     step = Step("read_page", {"page_index": 4}, LONG, U)
     step2 = Step("search", {"query": "revenue"}, "found 3 pages", U)
     return Prediction(
-        q.id, system, "v1", ans, "answered", verify_ok, problems or [], [step, step2], U, 2.5, [4]
+        q.id, system, "v1", ans, status, verify_ok, problems or [], [step, step2], U, 2.5, [4]
     )
 
 
@@ -69,11 +71,17 @@ def write_run(
     problems: list[str] | None = None,
     version: str = "v1",
     labels: list[str] | None = None,
+    final_value: FinalValue | None = None,
+    status: str = "answered",
+    summary_extra: dict[str, Any] | None = None,
 ) -> None:
     run = root / run_id
     qs = [q for q in ids if not isinstance(q, str)] or [q for q in QUESTIONS if q.id in ids]
     for i, q in enumerate(qs):
-        append_prediction(run, prediction(q, system, quote, page_index, verify_ok, problems))
+        append_prediction(
+            run,
+            prediction(q, system, quote, page_index, verify_ok, problems, final_value, status),
+        )
         label = labels[i] if labels else ("correct" if i % 2 == 0 else "incorrect")
         append_verdict(run, Verdict(q.id, label, "numeric", "r", U))  # type: ignore[arg-type]
     n = len(qs)
@@ -92,6 +100,7 @@ def write_run(
                 "coverage": 1.0,
                 "cost_per_question": 0.01,
                 "mean_latency_s": 2.5,
+                **(summary_extra or {}),
             }
         )
     )

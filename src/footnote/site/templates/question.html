@@ -23,6 +23,9 @@
   {% endif %}
   <p class="muted">Grader ({{ e.verdict.method }}): {{ e.verdict.rationale|excerpt }}</p>
   {% if p.answer and p.status != "declined" and not p.answer.declined %}
+  {% if p.answer.final_value is none %}
+  <p class="muted">No final number was given; only the quotes were checked.</p>
+  {% endif %}
   {% set value_untraced = p.verify_ok is false and p.verify_problems|final_value_only %}
   {% if p.verify_ok is true or value_untraced %}
   {% if value_untraced %}

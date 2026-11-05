@@ -10,6 +10,7 @@
 {% endif %}
       <th class="num">Graded</th>
       <th class="num">Coverage</th>
+      <th class="num">Answered without a final number</th>
       <th class="num">Cost / question</th>
       <th class="num">Mean latency</th>
     </tr>
@@ -26,6 +27,7 @@
 {% endif %}
       <td class="num">{{ s.get("n_graded", "n/a") }}/{{ s.get("n", "n/a") }}</td>
       <td class="num">{{ s.get("coverage")|pct }}</td>
+      <td class="num">{{ s.get("answered_without_final_value", "n/a") }}</td>
       <td class="num">{{ s.get("cost_per_question")|usd }}</td>
       <td class="num">{{ s.get("mean_latency_s")|seconds }}</td>
     </tr>
