@@ -50,8 +50,7 @@ def test_a_baseline_highest() -> None:
         run("no-docs", 0.33, None, 0.001, split="dev"),
     ]
     assert headline(runs) == (
-        "On the 93 development questions (latest version of each system: Footnote agent v1, "
-        "Plain retrieval v1, Long context v1, Without documents v1), "
+        "On the 93 development questions, comparing the latest version of each system, "
         "Long context scores highest (87%). "
         f"The agent scores 72% and {CHECK}; 20% of Long context answers pass the same check. "
         "The agent costs 28% as much per question as Long context."
@@ -127,8 +126,8 @@ def test_several_versions_rank_the_latest_of_each_system_and_say_so() -> None:
     ]
     text = headline(runs) or ""
     assert text.startswith(
-        "On the 93 development questions (latest version of each system: Footnote agent v2, "
-        "Long context v1), Long context scores highest (80%)."
+        "On the 93 development questions, comparing the latest version of each system, "
+        "Long context scores highest (80%)."
     )
     assert "The agent scores 60%" in text and "95%" not in text
 
@@ -140,7 +139,9 @@ def test_a_newer_gate_run_is_never_ranked_as_a_development_run() -> None:
         run("long-context", 0.80, 0.2, split="dev"),
     ]
     text = headline(runs) or ""
-    assert text.startswith("On the 93 development questions (latest version of each system: ")
+    assert text.startswith(
+        "On the 93 development questions, comparing the latest version of each system, "
+    )
     assert (
         "Long context scores highest (80%)" in text
         and "highest (100%)" not in text

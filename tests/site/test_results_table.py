@@ -91,3 +91,13 @@ def test_the_code_check_note_says_what_is_counted_and_why_baselines_fail_it(
     assert "Passed code check is the share of answered questions" in flat
     assert "found on their cited pages" in flat and "final number was traced" in flat
     assert "baselines log no calculations" in flat and "cannot be traced" in flat
+
+
+def test_the_caption_lists_each_version_in_lowercase_with_a_v(
+    tmp_path: Path, inject: dict[str, Any]
+) -> None:
+    root = tmp_path / "results"
+    write_run(root, "agent-dev-1", "agent", "dev", ["q1"], version="2")
+    write_run(root, "nodocs-dev-1", "no-docs", "dev", ["q1"], version="3")
+    publish(root, ["agent-dev-1", "nodocs-dev-1"])
+    assert "Versions: agent v2 · no documents v3" in _index(root, tmp_path, inject)

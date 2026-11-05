@@ -1,7 +1,5 @@
 """Jinja filters. Every string that comes from a filing or the benchmark goes through `excerpt`."""
 
-import json
-
 EXCERPT_LIMIT = 400
 STEP_LIMIT = 200
 
@@ -45,9 +43,7 @@ def step_arguments(arguments: object) -> str:
         elif key == "expression":
             parts.append(str(value))
         else:
-            shown = (
-                value if isinstance(value, str | int | float) else json.dumps(value, default=str)
-            )
+            shown = value if isinstance(value, str | int | float) else f"({len(value)} items)"
             parts.append(f"{key.replace('_', ' ')} {shown}")
     return excerpt(", ".join(parts), STEP_LIMIT)
 

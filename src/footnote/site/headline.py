@@ -86,10 +86,7 @@ def headline(runs: list[Run], filing_of: Callable[[str], str] = str) -> str | No
     count = max(r.summary.get("n") or 0 for r in scored)
     what = f"{count} {split} questions" if count else f"{split} split"
     if split == "development":
-        versions = ", ".join(
-            f"{LABELS.get(r.system, r.system)} {r.version}" for r in scored if r.version
-        )
-        what += f" (latest version of each system: {versions})" if versions else ""
+        what += ", comparing the latest version of each system"
     opener = f"On the {what}, "
     best = max(r.summary["accuracy"] for r in scored)
     top = [r for r in scored if r.summary["accuracy"] == best]

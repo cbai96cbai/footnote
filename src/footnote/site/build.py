@@ -40,7 +40,7 @@ def _env() -> Environment:
         lstrip_blocks=True,
     )
     env.filters["excerpt"] = filters.excerpt
-    env.filters["step_arguments"] = filters.step_arguments
+    env.filters["step_text"] = wording.step_text
     env.filters["problem_notes"] = wording.problem_notes
     env.filters["shown_steps"] = wording.shown_steps
     env.filters["final_value_line"] = wording.final_value_line

@@ -16,6 +16,12 @@ LABELS = {
     "no-docs": "Without documents",
 }
 ORDER = list(LABELS)
+SYSTEM_WORDS = {
+    "agent": "agent",
+    "plain-retrieval": "plain retrieval",
+    "long-context": "long context",
+    "no-docs": "no documents",
+}
 
 
 @dataclass(frozen=True)
@@ -36,6 +42,11 @@ class Run:
     def display_label(self) -> str:
         """The label, with the version for exploratory runs (several may exist per system)."""
         return self.label if self.split == "test" else f"{self.label} {self.version}"
+
+    @property
+    def version_name(self) -> str:
+        """Short caption form, e.g. "long context v2"."""
+        return f"{SYSTEM_WORDS.get(self.system, self.system)} v{self.version}"
 
     @property
     def page_label(self) -> str:

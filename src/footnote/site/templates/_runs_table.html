@@ -27,6 +27,7 @@
 </table>
 </div>
 <p class="muted">Runs shown: {% for r in runs %}{{ r.display_label }}: version {{ r.version }}, {{ r.split }} split, run {{ r.run_id }}{{ "; " if not loop.last else "." }}{% endfor %}</p>
+<p class="muted">Versions: {% for r in runs %}{{ r.version_name }}{{ " · " if not loop.last }}{% endfor %}</p>
 <p class="muted">Answered without a final number: {% for r in runs %}{{ r.display_label }} {{ r.answered_without_final_value }}{{ ", " if not loop.last else "." }}{% endfor %}</p>
 {% endmacro %}
 

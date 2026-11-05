@@ -11,10 +11,6 @@
   {% endfor %}
   </ul>
   {% endif %}
-  {% if p.answer and p.answer.answer.strip() %}
-  <p class="muted">Partial answer (not scored as an answer):</p>
-  <p>{{ p.answer.answer|excerpt }}</p>
-  {% endif %}
   {% elif p.answer %}
   <p>{{ p.answer.answer|excerpt }}</p>
   <p class="final-value">{{ p.answer.final_value|final_value_line }}</p>
@@ -69,7 +65,7 @@
     {% endif %}
     <ol class="trace">
     {% for name, s in steps %}
-      <li><strong>{{ name }}</strong> {{ s.arguments|step_arguments }}
+      <li><strong>{{ name }}</strong> {{ s|step_text(name) }}
       <div class="muted">{{ s.summary|excerpt(200) }}</div></li>
     {% endfor %}
     </ol>

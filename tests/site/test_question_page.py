@@ -118,11 +118,31 @@ def test_own_decline_names_the_system_and_keeps_its_note_in_the_trace(
     assert "Partial answer" not in html
 
 
-def test_partial_answer_text_is_labelled_not_scored(tmp_path: Path, inject: dict[str, Any]) -> None:
+def test_a_declined_page_has_no_partial_answer_block(
+    tmp_path: Path, inject: dict[str, Any]
+) -> None:
     pred = _declined("plain-retrieval", [], answer="At least two material items", reason="thin")
     html = _page(tmp_path, inject, "plain-retrieval", pred=pred, labels=["declined"])
-    assert "Partial answer (not scored as an answer)" in html
-    assert "At least two material items" in html
+    assert "Partial answer" not in html
+    before, trace = html.split("<details>")
+    assert "At least two material items" not in before
+    assert "own note: thin At least two material items" in trace
+
+
+def test_a_submit_step_is_a_plain_sentence_never_json(
+    tmp_path: Path, inject: dict[str, Any]
+) -> None:
+    base = prediction(QUESTIONS[0], "agent", quote=QUOTE)
+    args = {"answer": "x", "citations": [{"page_index": 56, "quote": QUOTE}], "final_value": None}
+    steps = [
+        Step("submit_answer", args, "verified", U),
+        Step("calculate", {"expression": "1+2", "operands": [1, 2]}, "3", U),
+    ]
+    html = _page(tmp_path, inject, pred=replace(base, trace=steps))
+    trace = html.split('<ol class="trace">')[1].split("</ol>")[0]
+    assert "submitted an answer with 1 citation<" in trace.replace("\n", "<")
+    for bad in ('{"', "&#34;", "{&#", "[{", "['"):
+        assert bad not in trace, bad
 
 
 def test_a_withheld_answer_says_the_code_check_failed_and_why(

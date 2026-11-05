@@ -122,7 +122,7 @@ def test_trace_arguments_are_a_short_readable_phrase() -> None:
     assert step_arguments({"page_index": 4, "x": 1}) == "page 5, x 1"
     assert step_arguments({"query": "net sales"}) == '"net sales"'
     assert step_arguments({"expression": "1+2"}) == "1+2"
-    assert step_arguments({"last_page": [1, 2]}) == "last page [1, 2]"
+    assert step_arguments({"last_page": [1, 2]}) == "last page (2 items)"
 
 
 def test_the_unit_other_has_no_label() -> None:

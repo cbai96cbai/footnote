@@ -4,6 +4,7 @@ from footnote.answers import FinalValue
 from footnote.benchmark import DocInfo
 from footnote.page_problems import parse_page_problem
 from footnote.prediction import Prediction, Step
+from footnote.site.filters import step_arguments
 from footnote.site.links import form_name
 from footnote.site.runs import pack_truncation
 
@@ -94,7 +95,8 @@ def own_note(p: Prediction) -> str | None:
     """The system's own decline text, shown only inside the trace; not the check's problems."""
     if p.verify_ok is False or p.answer is None:
         return None
-    return p.answer.decline_reason or None
+    text = " ".join(t for t in (p.answer.decline_reason, p.answer.answer.strip()) if t)
+    return text or None
 
 
 def pack_note(p: Prediction) -> str | None:
@@ -104,3 +106,11 @@ def pack_note(p: Prediction) -> str | None:
     return (
         f"This filing was longer than the system's window: it was given {cut[0]} of {cut[1]} pages."
     )
+
+
+def step_text(step: Step, name: str) -> str:
+    """A step as a plain phrase: never the raw arguments, which hold JSON for a submission."""
+    if name == "submit":
+        n = len(step.arguments.get("citations") or [])
+        return f"submitted an answer with {n} citation{'' if n == 1 else 's'}"
+    return step_arguments(step.arguments)
