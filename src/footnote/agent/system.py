@@ -12,8 +12,6 @@ from footnote.agent.prompts import (
     NUDGE_NO_TOOL,
     REPLIES_LEFT,
     RETRY_TEMPLATE,
-    RETRY_TOOL_CHOICE,
-    RETRY_TOOL_NAMES,
     SUBMIT_NEXT,
     SYSTEM_PROMPT,
     TOOLS,
@@ -81,8 +79,6 @@ CONFIG: dict[str, Any] = {
     "research_input_target_tokens": RESEARCH_INPUT_TARGET,
     "max_problem_tokens": MAX_PROBLEM_TOKENS,
     "submit_tool_choice": FORCE,
-    "retry_tool_choice": RETRY_TOOL_CHOICE,
-    "retry_tools": RETRY_TOOL_NAMES,
     "tool_limits": {
         "read_page_max_tokens": tool_limits.READ_PAGE_MAX_TOKENS,
         "search_k": tool_limits.SEARCH_K,

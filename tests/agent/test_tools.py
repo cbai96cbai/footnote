@@ -91,3 +91,11 @@ def test_tool_results_show_hyphen_marks_as_hyphens_and_a_displayed_quote_verifie
         shown = out.content.split("\n", 1)[1]
         assert quote_in_page("Regulation S-T and forward-looking statements", shown)
         assert quote_in_page("Regulation S-T and forward-looking statements", raw)
+
+
+def test_the_calculate_description_mentions_fractional_exponents() -> None:
+    from footnote.agent.prompts import TOOLS
+
+    calc = next(t for t in TOOLS if t["function"]["name"] == "calculate")
+    assert "fractional exponents of positive numbers" in calc["function"]["description"]
+    assert box().run("calculate", {"expression": "4**0.5"}).content.startswith("4**0.5 = 2.0000")

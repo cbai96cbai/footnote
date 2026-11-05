@@ -32,7 +32,7 @@ def test_submission_is_forced_for_the_last_two_replies_only() -> None:
 
 def test_first_forced_submission_fails_and_the_forced_retry_passes() -> None:
     p, client = run([*researching(6), submit(BAD, "s1"), submit(GOOD, "s2")])
-    assert client.tool_choices == [None] * 6 + [FORCE, "required"]
+    assert client.tool_choices == [None] * 6 + [FORCE, FORCE]
     assert p.status == "answered" and p.verify_ok is True and len(client.calls) == 8
     assert "Verification found problems" in json.dumps(client.calls[7])
 
@@ -188,9 +188,9 @@ def test_a_long_last_research_reply_still_leaves_the_retry_a_call() -> None:
     client = ScriptedClient([*reads, long_reply, submit(BAD, "s1"), submit(GOOD, "s2")])
     p = run_agent(question_of(12_700), client, big, FakeIndex([(1, PAGES[1])]))  # type: ignore[arg-type]
     assert p.status == "answered" and p.verify_ok is True and len(client.calls) == 8
-    assert client.tool_choices == [None] * 6 + [FORCE, "required"]
+    assert client.tool_choices == [None] * 6 + [FORCE, FORCE]
     assert all(sent_size(client, i) <= TARGET for i in range(6))
-    assert sent_size(client, 7) > 15_000  # far beyond the research target; two tools are sent
+    assert sent_size(client, 7) > 15_000  # far beyond the research target; all tools are sent
     assert all(sent_size(client, i) <= LIMIT for i in (6, 7))
     retry = next(m for m in client.calls[7] if m.get("tool_call_id") == "s1")
     assert retry["content"].startswith("Verification found problems")
@@ -230,7 +230,7 @@ def test_config_hash_covers_the_new_texts_the_search_width_and_the_forcing_rule(
     texts = list(CONFIG["prompt"].values())
     for name in ("SYSTEM_PROMPT", "RETRY_TEMPLATE", "SUBMIT_NEXT", "LAST_REPLY", "REPLIES_LEFT"):
         assert getattr(prompts, name) in texts
-    assert CONFIG["version"] == "3" and CONFIG["tool_limits"]["search_k"] == 8
+    assert CONFIG["version"] == "4" and CONFIG["tool_limits"]["search_k"] == 8
     assert CONFIG["research_input_target_tokens"] == TARGET == 13_000
     assert CONFIG["max_problem_tokens"] == MAX_PROBLEM_TOKENS == 1_000
     assert CONFIG["limits"]["max_input_tokens"] == 24_000
@@ -245,7 +245,7 @@ def test_config_hash_covers_the_new_texts_the_search_width_and_the_forcing_rule(
         {**CONFIG, "prompt": prompt},
         {**CONFIG, "prompt": {**CONFIG["prompt"], "submit_next": "x"}},
         {**CONFIG, "tool_limits": {**CONFIG["tool_limits"], "search_k": 5}},
-        {**CONFIG, "version": "2"},
+        {**CONFIG, "version": "3"},
     ):
         assert hash_config(changed) != base
 
@@ -259,7 +259,23 @@ def test_every_model_visible_constant_and_the_check_version_change_the_agent_has
     base = hash_config(CONFIG)
     texts = list(CONFIG["prompt"].values())
     assert submit.IGNORED_EXTRA in texts and submit.IGNORED_AFTER in texts
-    assert CONFIG["verify_version"] == VERIFY_VERSION == "3"
+    assert CONFIG["verify_version"] == VERIFY_VERSION == "4"
     for key in ("ignored_extra_submission", "ignored_after_submission"):
         assert hash_config({**CONFIG, "prompt": {**CONFIG["prompt"], key: "other"}}) != base
-    assert hash_config({**CONFIG, "verify_version": "4"}) != base
+    assert hash_config({**CONFIG, "verify_version": "3"}) != base
+
+
+def test_a_schema_error_names_the_wrong_field_and_the_expected_shape() -> None:
+    attempt = judge({**GOOD, "final_value": 16.52}, PAGES, "?", [], retried=False)
+    assert attempt.kind == "invalid"
+    assert "final_value:" in attempt.feedback
+    assert '{"value": <number>, "unit": "usd" | "percent" | "ratio" | "count" | "other"}' in (
+        attempt.feedback
+    )
+    assert "null" in attempt.feedback
+    many = judge({"citations": 3}, PAGES, "?", [], retried=False)
+    assert many.feedback.count("Field required") == 3 and "and 2 more" in many.feedback
+    assert (
+        "final_value must be"
+        not in judge({**GOOD, "citations": 3}, PAGES, "?", [], retried=False).feedback
+    )

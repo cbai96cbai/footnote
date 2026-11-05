@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from pydantic import ValidationError
 
-from footnote.agent.prompts import RETRY_TEMPLATE, RETRY_TOOL_CHOICE
+from footnote.agent.prompts import RETRY_TEMPLATE
 from footnote.agent.tools import cap, cut_to_tokens
 from footnote.answers import AgentAnswer
 from footnote.verify import Calc, verify_answer
@@ -28,11 +28,9 @@ def declined(reason: str) -> AgentAnswer:
     )
 
 
-def tool_choice_for(replies_left: int, retried: bool = False) -> dict[str, Any] | str | None:
-    """What the next call asks for: any tool (calculate or submit_answer) when it answers a failed
-    submission, submit_answer when the last two replies are left, otherwise nothing."""
-    if retried:
-        return RETRY_TOOL_CHOICE
+def tool_choice_for(replies_left: int) -> dict[str, Any] | None:
+    """What the next call asks for: submit_answer when the last two replies are left, otherwise
+    nothing (any tool)."""
     return FORCE if replies_left <= FORCE_WHEN_LEFT else None
 
 
@@ -53,17 +51,44 @@ class Attempt:
     problems: tuple[str, ...] = ()
 
 
+FINAL_VALUE_SHAPE = (
+    'final_value must be {"value": <number>, "unit": "usd" | "percent" | "ratio" | "count" | '
+    '"other"} or null'
+)
+MAX_SCHEMA_ERRORS = 3
+
+
+def _schema_errors(exc: ValidationError) -> str:
+    """The first few wrong fields (path and message), and the expected shape of final_value."""
+    errors = exc.errors()
+    listed = [
+        f"{'.'.join(str(part) for part in e['loc']) or 'answer'}: {e['msg']}"
+        for e in errors[:MAX_SCHEMA_ERRORS]
+    ]
+    more = len(errors) - MAX_SCHEMA_ERRORS
+    text = "; ".join(listed) + (f"; and {more} more" if more > 0 else "")
+    if any(e["loc"][:1] == ("final_value",) for e in errors):
+        text += f". {FINAL_VALUE_SHAPE}"
+    return text
+
+
 def judge(
-    args: dict[str, Any], pages: dict[int, str], question: str, calcs: list[Calc], *, retried: bool
+    args: dict[str, Any],
+    pages: dict[int, str],
+    question: str,
+    calcs: list[Calc],
+    *,
+    retried: bool,
+    resubmit_only: bool = False,
 ) -> Attempt:
     try:
         answer = AgentAnswer.model_validate(args)
     except ValidationError as exc:
-        text = f"error: answer does not match the schema ({exc.error_count()} errors)"
+        text = f"error: answer does not match the schema: {_schema_errors(exc)}"
         return Attempt("invalid", text, cap(text))
     if answer.declined:
         return Attempt("declined", "declined", "declined", answer)
-    ok, problems = verify_answer(answer, pages, question, calcs)
+    ok, problems = verify_answer(answer, pages, question, calcs, resubmit_only)
     if ok:
         return Attempt("accepted", "accepted", "verified", answer)
     joined = "; ".join(problems)

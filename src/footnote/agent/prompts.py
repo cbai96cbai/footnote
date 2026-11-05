@@ -27,6 +27,8 @@ Rules for the answer you submit:
   no such costs', or '—' in a table), set final_value to null and state the answer in words. If
   the filing does not show the figure separately, say that, cite what it does show, and do not
   submit 0.
+- Write the answer text for a reader: state the figure in words and numbers, and never name
+  fields such as final_value or citations.
 - Use calculate for every piece of arithmetic; never compute in your head. Write the figures from
   the filing into the expression.
 - Every number in an expression is from a cited quote, an allowed constant, or an earlier calculate
@@ -40,8 +42,8 @@ Rules for the answer you submit:
   across their columns carefully: match the row label to the right column heading and period.
 - Set declined to true, with a decline_reason, only when the filing cannot support an answer.
 - Your answer is checked against the filing. If the check finds problems you will be told once and
-  may submit again. That reply offers only calculate and submit_answer: in the same reply, call
-  calculate for any missing step and then submit_answer.
+  may submit again. Run calculate for every step before you submit: if a check fails with two or
+  fewer replies left, the next reply can only resubmit.
 - Budget: you get at most 8 replies in total, and the submission and any retry count among them.
   Several tool calls in one reply cost one reply, and only the first submit_answer in a reply is
   used. Each tool result tells you how many replies are left. When two replies are left, your next
@@ -57,8 +59,7 @@ RETRY_TEMPLATE = (
     "Verification found problems: {problems}. Fix them and call submit_answer again, once: "
     "shorten a long quote to at most 400 characters (about 60 words), the sentence or table row "
     "that holds the figure, copy every quote exactly from a tool result, and keep calculations "
-    "out of quotes. This reply offers only calculate and submit_answer: in the same reply, call "
-    "calculate for any missing step and then submit_answer."
+    "out of quotes."
 )
 REPLIES_LEFT = "[replies left: {n}]"
 SUBMIT_NEXT = (
@@ -66,8 +67,6 @@ SUBMIT_NEXT = (
     "retry.]"
 )
 LAST_REPLY = "[replies left: 1. This is your last reply: call submit_answer now.]"
-
-RETRY_TOOL_NAMES = ["calculate", "submit_answer"]
 
 
 def _tool(name: str, description: str, properties: dict[str, Any], required: list[str]) -> Any:
@@ -102,7 +101,8 @@ TOOLS: list[Any] = [
     ),
     _tool(
         "calculate",
-        "Evaluate arithmetic: numbers, + - * / **, parentheses, unary minus.",
+        "Evaluate arithmetic: numbers, + - * / **, parentheses, unary minus. Powers are supported, "
+        "including fractional exponents of positive numbers, as in (end/start)**(1/3)-1.",
         {"expression": {"type": "string"}},
         ["expression"],
     ),
@@ -115,8 +115,3 @@ TOOLS: list[Any] = [
         },
     },
 ]
-
-
-# the reply that answers a failed submission may calculate, then must submit
-RETRY_TOOLS: list[Any] = [t for t in TOOLS if t["function"]["name"] in RETRY_TOOL_NAMES]
-RETRY_TOOL_CHOICE = "required"
