@@ -85,3 +85,19 @@ def test_the_agent_hash_differs_from_the_version_2_shape() -> None:
     assert hash_config(older) != hash_config(CONFIG)
     for key in ("version", "verify_version"):
         assert hash_config({**CONFIG, key: "2"}) != hash_config(CONFIG)
+
+
+def test_the_prompt_rules_for_words_dashes_and_quote_length_are_pinned() -> None:
+    system = " ".join(SYSTEM_PROMPT.split())
+    retry = " ".join(RETRY_TEMPLATE.split())
+    assert (
+        "If the filing states the answer in words or shows it as a dash (for example 'there were "
+        "no such costs', or '—' in a table), set final_value to null and state the answer in "
+        "words." in system
+    )
+    assert (
+        "If the filing does not show the figure separately, say that, cite what it does show, "
+        "and do not submit 0." in system
+    )
+    assert "at most 400 characters (about 60 words)" in system
+    assert "at most 400 characters (about 60 words)" in retry

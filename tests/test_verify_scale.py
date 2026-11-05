@@ -45,3 +45,23 @@ def test_a_scaled_result_alone_still_needs_a_traced_operand_and_the_log() -> Non
     assert not fv_check("82.31", "other", QUOTES, alone, page=PAGE)[0]
     only_constants = [evaluate_expression("280714-31563"), evaluate_expression("1000000*2")]
     assert not fv_check("2000000", "other", QUOTES, only_constants[1:], page=PAGE)[0]
+
+
+def test_operand_scaling_and_final_unit_scaling_are_separate_rules() -> None:
+    page = "Revenue 125 and cost 42"
+    quotes = [page]
+
+    def accepted(second: str, value: str, unit: str) -> bool:
+        calcs = [evaluate_expression("125-42"), evaluate_expression(second)]
+        return fv_check(value, unit, quotes, calcs, page=page)[0]
+
+    assert accepted("83000/8", "10375", "ratio")  # operand 83 scaled by 1,000
+    assert not accepted("83/8", "10375", "ratio")  # a ratio's final value takes no scale
+    assert accepted("83/8", "10375", "usd")  # a usd final value may be scaled
+
+
+def test_an_earlier_result_is_never_scaled_down_as_an_operand() -> None:
+    calcs = [evaluate_expression("280714-31563"), evaluate_expression("249.151/3027128112")]
+    assert calcs[1].operands[0] == Decimal("249.151")
+    ratio = str(calcs[1].result.quantize(Decimal("0.000000001")))
+    assert not fv_check(ratio, "other", QUOTES, calcs, page=PAGE)[0]

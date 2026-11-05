@@ -12,9 +12,10 @@ once.
 - **Answers with quotes.** Each answer cites the filing page and the quotes behind it. A code
   check confirms the quotes appear on the cited pages and that the final number is a rounding of a
   quoted number (either sign) or of a logged calculation over quoted numbers or the exact results of
-  earlier such calculations. For money, counts and other units a quoted number, a calculation
-  result and a calculation operand that comes from an earlier result may each be scaled by a power
-  of 1,000; percents and ratios take no scale. An answer may give no final number (for example
+  earlier such calculations. A calculation operand, whether a quoted number or an earlier result,
+  may be scaled up by a power of 1,000 whatever the final unit, because tables state their scale
+  in a header. The final value may be scaled by a power of 1,000 for money, counts and other
+  units; percents and ratios take no scale. An answer may give no final number (for example
   when the filing says there were none); then only its quotes are checked.
 - **Compared on equal terms.** The agent is scored against three baselines (no documents, plain
   retrieval, long context) with the same model and the same grading; the systems that read
@@ -100,10 +101,11 @@ After the agent submits, code checks two things.
 2. The final numeric answer is a correct rounding of a number in a cited quote, or the result of a
    logged calculation over quoted numbers or the exact results of earlier such calculations (plus
    small constants such as /2, x100, x365). A figure counts with either sign: a value in
-   parentheses or with a minus sign is the same figure. For the units usd, count and other, a quoted
-   number, a calculation result and a calculation operand that comes from an earlier result may
-   each be scaled by a power of 1,000 (thousands, millions, billions); percent and ratio take no
-   scale. A percent may also be a calculation result times 100, never a quoted number times 100.
+   parentheses or with a minus sign is the same figure. A calculation operand,
+   whether a quoted number or an earlier result, may be scaled up by a power of 1,000 whatever the
+   final unit, because tables state their scale in a header. The final value may be scaled by a
+   power of 1,000 (thousands, millions, billions) for the units usd, count and other; percent and
+   ratio take no scale. A percent may also be a calculation result times 100, never a quoted number times 100.
    An answer may give no final number (for example when the filing says there were none); then only
    its quotes are checked. The baselines have no logged calculations.
 

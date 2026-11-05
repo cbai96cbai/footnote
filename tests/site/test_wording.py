@@ -64,9 +64,9 @@ def test_about_states_how_checks_and_failure_types_differ_by_system(
     assert "Failure types therefore differ by system" in about
 
 
-SCALE = (
-    "a quoted number, a calculation result and a calculation operand that comes from an earlier "
-    "result may each be scaled by a power of 1,000"
+OPERANDS = (
+    "A calculation operand, whether a quoted number or an earlier result, may be scaled up by a "
+    "power of 1,000 whatever the final unit, because tables state their scale in a header"
 )
 NO_NUMBER = (
     "An answer may give no final number (for example when the filing says there were none); "
@@ -81,7 +81,13 @@ def test_scale_and_no_final_number_sentences_are_stated_in_each_scope_statement(
         flat = " ".join(public_text[name].split())
         assert NO_NUMBER in flat, name
     readme = " ".join(public_text["README.md"].split())
-    assert readme.count(SCALE) == 2 and readme.count(NO_NUMBER) == 2
+    assert readme.count(OPERANDS) == 2 and readme.count(NO_NUMBER) == 2
+    assert (
+        readme.count("percents and ratios take no scale")
+        + readme.count("percent and ratio take no scale")
+        == 2
+    )
     about = " ".join(public_text["about.html"].split())
-    assert SCALE in about
-    assert "quoted number and a calculation result may each be scaled" not in about
+    assert OPERANDS in about and "percent and ratio take no scale" in about
+    assert "The final value may be scaled by a power of 1,000" in about
+    assert "Numbers in the explanation text are not checked" in about
