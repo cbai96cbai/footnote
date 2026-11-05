@@ -1,1 +1,55 @@
-[]
+# Real failures from the test-split runs, one per entry; `system` is the run the note describes.
+- id: financebench_id_04103
+  system: Footnote agent
+  note: >-
+    A cash conversion cycle needs inventory, receivables and payables terms. The agent calculated
+    the first two (52.6 and 36.4 days) but never the payables term, and its two submitted answers
+    (17.6) were both rejected by the code check. The run ended without a passing answer, so it
+    counts as a decline. Long context answered this question correctly.
+- id: financebench_id_00720
+  system: Footnote agent
+  note: >-
+    The reference answer says gross margin is not a measure for this company. The agent's first
+    submission was rejected for a quote over the length limit, and its second for a quote that
+    is not on the cited page. The run ended with no passing answer, so it counts as a decline,
+    although the other three systems answered correctly.
+- id: financebench_id_02987
+  system: Plain retrieval
+  note: >-
+    Plain retrieval declined because its retrieved passages did not include the revenue or the
+    property and equipment balances. The agent ran separate searches for the income statement and
+    the balance sheet and answered correctly. A decline scores as a miss.
+- id: financebench_id_10136
+  system: Plain retrieval
+  note: >-
+    Neither page with the dividends and net earnings figures was among the pages plain retrieval
+    retrieved. It answered 56.15% from other figures (net earnings of $2,735.0 million, and
+    dividends of $1.2 billion) instead of the 54.03% the agent reached from the quoted
+    lines. The reference is 0.54.
+- id: financebench_id_05718
+  system: Long context
+  note: >-
+    Long context answered $0.389 billion, which is the filing's $389 million. The reference says
+    $0.40, and the numeric match scored the answer incorrect, as it did the agent's 0.39 and
+    plain retrieval's 0.389. The answers match the filing's figure; the gap is the reference's
+    rounding, and the miss still counts.
+- id: financebench_id_07966
+  system: Without documents
+  note: >-
+    With no filing text, the model gave a three-year average of 4.2% for capital expenditure as a
+    share of revenue. The reference is 1.9%. Measuring what the model does without the filing is
+    what this system is for.
+- id: financebench_id_00585
+  system: Footnote agent
+  note: >-
+    The agent quoted the filing's line "Effective income tax rate (0.6) % 14.8 %", reported -0.6%
+    and 14.8%, and passed the code check. The reference gives 0.62% and -14.76%, so the answer was
+    graded incorrect. Plain retrieval and Long context gave the same figures. The check proves an
+    answer traces to its quotes, not that it is right.
+- id: financebench_id_01902
+  system: Footnote agent
+  note: >-
+    The question asks which category performed best by top line. The reference names
+    entertainment, with the highest growth (9%). All four systems named Computing and Mobile
+    Phones, the largest category at 41% of domestic revenue. The agent's quote is on the page, and
+    the answer was still graded incorrect.
