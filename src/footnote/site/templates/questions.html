@@ -15,7 +15,7 @@
   <tbody>
   {% for row in rows %}
     <tr>
-      <td>{{ row.page.doc.company }}</td>
+      <td class="company">{{ row.page.doc.company }}</td>
       <td class="nowrap">{{ row.page.doc|filing }}</td>
       <td><a href="q/{{ row.page.q.id }}.html">{{ row.page.q.question|excerpt(110) }}</a></td>
       <td>{% for b in row.badges %}<span class="badge {{ b.label }}" title="{{ b.title }}">{{ b.tag }}: {{ b.label }}</span> {% endfor %}</td>

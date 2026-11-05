@@ -71,11 +71,17 @@ def test_cost_and_time_cells_are_shown(
     assert "$0.0100" in table and "2.5 s" in table
 
 
-def test_a_run_without_a_verified_rate_shows_not_available(
-    results: Path, tmp_path: Path, inject: dict[str, Any]
+def test_each_row_shows_its_own_pass_rate_or_not_available(
+    tmp_path: Path, inject: dict[str, Any]
 ) -> None:
-    (table,) = _tables(_index(results, tmp_path, inject))
-    assert "n/a" in table
+    root = tmp_path / "results"
+    write_run(root, "agent-dev-1", "agent", "dev", ["q1"], summary_extra={"verified_rate": 0.5})
+    write_run(root, "nodocs-dev-1", "no-docs", "dev", ["q1"])
+    publish(root, ["agent-dev-1", "nodocs-dev-1"])
+    (table,) = _tables(_index(root, tmp_path, inject))
+    rows = re.findall(r"<tr>(.*?)</tr>", table, re.S)[1:]
+    cells = [re.findall(r"<td[^>]*>(.*?)</td>", r, re.S) for r in rows]
+    assert [c[3] for c in cells] == ["50.0%", "n/a"]
 
 
 def test_the_code_check_note_says_what_is_counted_and_why_baselines_fail_it(

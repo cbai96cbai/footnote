@@ -26,7 +26,7 @@ companies.</p>
 one (page_index + 1), so it counts pages the way a PDF viewer does. It can differ from the page
 number printed on the filing.</p>
 
-<h2>What the grounding check proves</h2>
+<h2 id="grounding">What the grounding check proves</h2>
 <p>Every quote the system cites appears on the cited page of the filing, after normalizing whitespace, line breaks and
 hyphenation. The final
 numeric answer is a correct rounding of a number in a cited quote, or the result of a logged
@@ -60,8 +60,9 @@ AI-reference estimates, not human agreement rates.</p>
 <ul>
   <li>The sample is small, and questions cluster by company, so intervals are wide.</li>
   <li>Every system is told which filing a question is about. This does not test finding the filing.</li>
-  <li>Development runs informed design choices and are labeled exploratory. Claims of difference
-  rest on the test split, which each system family ran once.</li>
+  <li>Development runs informed design choices and are labeled exploratory.
+  {% if has_test %}Claims of difference rest on the test split, which each system family ran once.
+  {% else %}No test-split run has been published yet; claims of difference will rest on the test split, which each system family will run once.{% endif %}</li>
   <li>Grading by a model can be wrong in both directions.</li>
   <li>The 2023 paper numbers use different models, human grading and different retrieval setups, so they are context only.</li>
   <li>Source links are checked once and fall back to an SEC EDGAR search when a link is dead.</li>

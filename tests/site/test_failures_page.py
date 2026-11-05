@@ -21,7 +21,7 @@ def test_typed_failures_of_each_run_link_to_their_question_pages(
     assert 'href="q/q2.html"' in html and "What was Acme income?" in html
     assert "retrieval miss" in html  # agent: the gold pages were not read
     assert "wrong number" in html  # no-docs: graded by code and wrong
-    assert "none of the gold evidence pages was read" in html
+    assert "none of the pages that hold the reference answer was read" in html
     assert "q/q3.html" not in html and "Pfizer" not in html
 
 

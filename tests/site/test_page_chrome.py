@@ -58,7 +58,7 @@ def test_front_page_states_the_result_above_the_chart(
     )
     publish(root, ["agent-test-1", "nodocs-test-1"])
     html = (_out(root, tmp_path, inject) / "index.html").read_text()
-    sentence = '<p class="headline">The agent scores highest (100%)'
+    sentence = '<p class="headline">On the 3 test questions, the agent scores highest (100%)'
     assert sentence in html and html.index(sentence) < html.index("<svg")
 
 

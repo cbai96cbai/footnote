@@ -2,7 +2,7 @@
 {% from "_runs_table.html" import runs_table, paired_table, table_notes %}
 {% block title %}Footnote: results{% endblock %}
 {% block content %}
-<h1>Footnote</h1>
+<h1>Results</h1>
 <p class="lede">An agent that answers questions about SEC filings and cites the quotes behind its answers.
 Code confirms the quotes appear on the cited pages and that the final number comes from them. It is scored against baselines that use the same model, on the FinanceBench open sample.
 Intervals resample whole companies, because questions about one company are not independent.</p>
@@ -10,7 +10,7 @@ Intervals resample whole companies, because questions about one company are not 
 {% if headline %}
 <p class="headline">{{ headline }}</p>
 <p class="muted">{% if test %}From the test split.{% else %}From exploratory development runs; no test-split run has been published yet.{% endif %}
-<a href="questions.html">Browse every question</a> to see each system's answer and its quotes.</p>
+{{ " " }}<a href="questions.html">Browse every question</a> to see each system's answer and its quotes.</p>
 {% else %}
 <p class="muted"><a href="questions.html">Browse every question</a>.</p>
 {% endif %}
@@ -31,7 +31,7 @@ Intervals resample whole companies, because questions about one company are not 
 development, so they are not evidence of how the systems compare on unseen companies. The
 chart and table list each published version of a system separately.</p>
 {{ dev_chart }}
-{{ runs_table(dev) }}
+{{ runs_table(dev, earlier) }}
 {% endif %}
 
 {% if not test and not dev %}

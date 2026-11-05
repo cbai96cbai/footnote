@@ -44,6 +44,9 @@ def _env() -> Environment:
     env.filters["decline_headline"] = wording.decline_headline
     env.filters["filing"] = wording.filing
     env.filters["form"] = wording.form
+    env.filters["stop_reason"] = wording.stop_reason
+    env.filters["pack_note"] = wording.pack_note
+    env.filters["reference"] = wording.reference_excerpt
     env.filters["final_value_only"] = filters.final_value_only
     env.filters["difference"] = filters.difference
     env.filters["pct"] = filters.pct
@@ -56,11 +59,18 @@ def _yaml_list(name: str) -> list[Any]:
     return yaml.safe_load((HERE / name).read_text(encoding="utf-8")) or []
 
 
-def _chart(runs: list[Run], title: str) -> Any:
+def _earlier(runs: list[Run]) -> set[str]:
+    """Run ids of a system's versions that a later published version replaces."""
+    last = {r.system: r.run_id for r in runs}
+    return {r.run_id for r in runs if r.split != "test" and last[r.system] != r.run_id}
+
+
+def _chart(runs: list[Run], title: str, earlier: set[str]) -> Any:
     bars = []
     for r in runs:
         ci = r.summary.get("ci95")
-        bars.append(Bar(r.display_label, r.summary.get("accuracy"), *(ci if ci else (None, None))))
+        label = r.display_label + (" (earlier version)" if r.run_id in earlier else "")
+        bars.append(Bar(label, r.summary.get("accuracy"), *(ci if ci else (None, None))))
     return accuracy_chart(bars, title)
 
 
@@ -91,7 +101,7 @@ def build_site(
         "dev": dev,
         "paired": paired_differences(test, by_id),
         "pages": pages,
-        "rows": question_rows(pages, runs),
+        "rows": question_rows(pages),
         "hidden": published.hidden,
         "featured": [pages[i] for i in featured_ids if i in pages],
         "curated": [{**f, "page": pages[f["id"]]} for f in failure_list if f.get("id") in pages],
@@ -118,9 +128,10 @@ def _write_pages(out_dir: Path, site: dict[str, Any]) -> None:
         test=test,
         dev=dev,
         paired=site["paired"],
-        headline=headline(test or dev),
-        test_chart=_chart(test, "Accuracy on the test split") if test else None,
-        dev_chart=_chart(dev, "Accuracy on development runs") if dev else None,
+        headline=headline(test + dev),
+        earlier=_earlier(dev),
+        test_chart=_chart(test, "Accuracy on the test split", set()) if test else None,
+        dev_chart=_chart(dev, "Accuracy on development runs", _earlier(dev)) if dev else None,
         paper=PAPER,
         featured=site["featured"],
     )
@@ -135,5 +146,5 @@ def _write_pages(out_dir: Path, site: dict[str, Any]) -> None:
         tables=site["failure_tables"],
         has_runs=site["has_runs"],
     )
-    write("about.html", "about.html", "")
+    write("about.html", "about.html", "", has_test=bool(test))
     write("404.html", "not_found.html", "/")

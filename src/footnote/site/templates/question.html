@@ -8,8 +8,9 @@
 <p class="muted">{{ doc.company }}, {{ doc.doc_type|form }} {{ doc.doc_period }}.
 <a href="{{ source }}" rel="noopener">Open the filing source</a>{% if edgar %}
 (<a href="{{ edgar }}" rel="noopener">EDGAR search</a>){% endif %}.</p>
+<p class="strip">{% for b in badges %}<span class="badge {{ b.label }}" title="{{ b.title }}">{{ b.tag }}: {{ b.label }}</span> {% endfor %}</p>
 <h2>Reference answer</h2>
-<p class="gold">{{ gold.answer|excerpt }}</p>
+<p class="gold">{{ gold.answer|reference }}</p>
 <p class="muted">Reference answer from FinanceBench (CC BY-NC 4.0).</p>
 <p class="muted legend">Graded by code: the number is compared with the answer key. Graded by a model: a separate model compares the meaning.</p>
 

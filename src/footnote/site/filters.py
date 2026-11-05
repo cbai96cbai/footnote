@@ -33,6 +33,11 @@ def seconds(x: float | None) -> str:
 
 
 def step_arguments(arguments: object) -> str:
+    """A step's arguments as JSON, with a page index shown as the page number the site prints."""
+    if isinstance(arguments, dict) and isinstance(arguments.get("page_index"), int):
+        arguments = {k: v for k, v in arguments.items() if k != "page_index"} | {
+            "page": arguments["page_index"] + 1
+        }
     return excerpt(json.dumps(arguments, sort_keys=True, default=str), STEP_LIMIT)
 
 

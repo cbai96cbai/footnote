@@ -1,4 +1,4 @@
-{% macro runs_table(runs) %}
+{% macro runs_table(runs, earlier=()) %}
 <div class="scroll">
 <table>
   <thead>
@@ -15,7 +15,7 @@
   {% for r in runs %}
     {% set s = r.summary %}
     <tr>
-      <td>{{ r.display_label }}</td>
+      <td>{{ r.display_label }}{% if r.run_id in earlier %} <span class="muted">(earlier version)</span>{% endif %}</td>
       <td class="num"><span class="nowrap">{{ s.get("accuracy")|pct }}</span>{% if s.get("ci95") %} <span class="muted nowrap">({{ s["ci95"][0]|pct }} to {{ s["ci95"][1]|pct }})</span>{% endif %}</td>
       <td class="num">{{ s.get("coverage")|pct }}</td>
       <td class="num">{{ s.get("verified_rate")|pct }}</td>
@@ -51,5 +51,5 @@
 
 {% macro table_notes() %}
 <p class="muted">"Without documents" means the model answers from memory and is given no filing text.
-Answered is the share of questions answered rather than declined. Passed code check is the share of answered questions whose quotes were all found on their cited pages and whose final number was traced to those quotes (or that gave no final number). The baselines log no calculations, so a computed number from a baseline cannot be traced; the no-documents system is not checked. Cost includes grading.</p>
+Answered is the share of questions answered rather than declined. Passed code check is the share of answered questions whose quotes were all found on their cited pages and whose final number was traced to those quotes (or that gave no final number). The agent answers only once its answer passes, so its rate is 100% by design; the other systems are checked after the fact. The baselines log no calculations, so a computed number from a baseline cannot be traced; the no-documents system is not checked. Cost includes grading.</p>
 {% endmacro %}

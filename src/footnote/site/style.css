@@ -72,3 +72,11 @@ footer.site { color: var(--muted); font-size: .85rem; border-top: 1px solid var(
   main.question h1 { font-size: 1.25rem; }
   h1 { font-size: 1.5rem; }
 }
+.strip { margin: .25rem 0 0; }
+@media (max-width: 37.5rem) {
+  .scroll table.questions { min-width: 0; }
+  table.questions, table.questions tbody, table.questions tr, table.questions td { display: block; width: 100%; }
+  table.questions thead, table.questions td.company { display: none; }
+  table.questions tr { padding: .6rem 0; border-bottom: 1px solid var(--line); }
+  table.questions td { border: 0; padding: .1rem 0; }
+}

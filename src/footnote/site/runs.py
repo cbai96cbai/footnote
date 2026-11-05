@@ -7,7 +7,7 @@ from typing import Any
 
 from footnote.eval.grade import Verdict
 from footnote.eval.records import read_predictions, read_verdicts
-from footnote.prediction import Prediction
+from footnote.prediction import Prediction, Step
 
 LABELS = {
     "agent": "Footnote agent",
@@ -46,6 +46,11 @@ class Run:
         return f"{self.label} · {kind} run" + (f" ({self.version})" if self.version else "")
 
     @property
+    def truncated_filings(self) -> int:
+        """Predictions whose filing was longer than the window and was cut."""
+        return sum(pack_truncation(p.trace) is not None for p in self.predictions.values())
+
+    @property
     def answered_without_final_value(self) -> int:
         """Answers that gave no final number: the summary's count, else counted from predictions."""
         recorded = self.summary.get("answered_without_final_value")
@@ -57,6 +62,14 @@ def _count_without_final_value(r: Run) -> int:
         p.status == "answered" and p.answer is not None and p.answer.final_value is None
         for p in r.predictions.values()
     )
+
+
+def pack_truncation(trace: list[Step]) -> tuple[int, int] | None:
+    """(pages given, pages in the filing) when the recorded pack step cut the filing short."""
+    for s in trace:
+        if s.tool == "pack" and s.arguments.get("truncated") is True:
+            return int(s.arguments["pages_included"]), int(s.arguments["pages_in_filing"])
+    return None
 
 
 def _order(system: str) -> tuple[int, str]:

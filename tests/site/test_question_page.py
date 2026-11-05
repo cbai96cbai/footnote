@@ -55,8 +55,8 @@ def test_final_value_is_its_own_line_before_the_grader_line(
     tmp_path: Path, inject: dict[str, Any]
 ) -> None:
     html = _page(tmp_path, inject, final_value=FinalValue(value=Decimal(1577), unit="usd"))
-    assert "Final value: 1,577 (usd)" in html
-    assert html.index("Final value: 1,577 (usd)") < html.index("Graded by code: r")
+    assert "Final value: 1,577 (usd, in the scale the question asks for)" in html
+    assert html.index("Final value: 1,577") < html.index("Graded by code: r")
 
 
 def test_no_final_number_line_and_the_disclosure_stay(
