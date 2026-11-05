@@ -5,7 +5,10 @@ from collections.abc import Callable
 from footnote.budget.limits import LIMITS
 from footnote.site.runs import LABELS, ORDER, Run
 
-CHECK = "gives an answer only when its quotes, and its final number when it gives one, pass the code check"
+CHECK = (
+    "gives an answer only when its quotes, and its final number when it gives one, "
+    "pass the code check"
+)
 
 
 def _pct(x: float) -> str:

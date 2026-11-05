@@ -8,7 +8,10 @@ from footnote.prediction import Step
 from footnote.site.headline import headline
 from footnote.site.runs import Run
 
-CHECK = "gives an answer only when its quotes, and its final number when it gives one, pass the code check"
+CHECK = (
+    "gives an answer only when its quotes, and its final number when it gives one, "
+    "pass the code check"
+)
 
 
 def run(
