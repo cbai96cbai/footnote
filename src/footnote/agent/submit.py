@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from pydantic import ValidationError
 
-from footnote.agent.prompts import RETRY_TEMPLATE
+from footnote.agent.prompts import RETRY_TEMPLATE, RETRY_TOOL_CHOICE
 from footnote.agent.tools import cap, cut_to_tokens
 from footnote.answers import AgentAnswer
 from footnote.verify import Calc, verify_answer
@@ -28,7 +28,11 @@ def declined(reason: str) -> AgentAnswer:
     )
 
 
-def tool_choice_for(replies_left: int) -> dict[str, Any] | None:
+def tool_choice_for(replies_left: int, retried: bool = False) -> dict[str, Any] | str | None:
+    """What the next call asks for: any tool (calculate or submit_answer) when it answers a failed
+    submission, submit_answer when the last two replies are left, otherwise nothing."""
+    if retried:
+        return RETRY_TOOL_CHOICE
     return FORCE if replies_left <= FORCE_WHEN_LEFT else None
 
 

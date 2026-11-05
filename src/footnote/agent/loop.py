@@ -9,6 +9,7 @@ from footnote.agent.prompts import (
     NUDGE_LENGTH,
     NUDGE_NO_TOOL,
     REPLIES_LEFT,
+    RETRY_TOOLS,
     SUBMIT_NEXT,
     SYSTEM_PROMPT,
     TOOLS,
@@ -33,7 +34,7 @@ from footnote.llm.tokens import count_input_tokens
 from footnote.prediction import NO_USAGE, RATE_LIMITED, Prediction, Step, add_usage
 
 FAMILY = "agent"
-VERSION = "2"
+VERSION = "3"
 _Status = Literal["answered", "declined", "error"]
 
 
@@ -60,6 +61,7 @@ class _Agent:
         self.calls = 0
         self.pages_read: list[int] = []
         self.retried = False
+        self.reply_submitted = False  # the newest reply held a submit_answer call
         self.last_problems: list[str] = []
         self.latest_feedback = ""  # tool_call_id of the newest submission feedback; never trimmed
         self.started = time.monotonic()
@@ -133,8 +135,8 @@ class _Agent:
                     self.messages,
                     deployment=self.client.settings.agent_deployment,
                     limits=LIMITS["agent"],
-                    tools=TOOLS,
-                    tool_choice=tool_choice_for(MAX_CALLS["agent"] - self.calls),
+                    tools=RETRY_TOOLS if self.retried else TOOLS,
+                    tool_choice=tool_choice_for(MAX_CALLS["agent"] - self.calls, self.retried),
                 )
             except CallFailed as exc:
                 self.usage = add_usage(self.usage, exc.usage)
@@ -144,12 +146,18 @@ class _Agent:
                 return self._error(f"call not made: {type(exc).__name__}: {exc}")
             self.calls += 1
             self.usage = add_usage(self.usage, res.usage)
+            answering_failure = self.retried
+            self.reply_submitted = False
             try:
                 done = self._handle(res)
             except Exception as exc:  # the charge is already in self.usage
                 return self._error(f"failed handling a reply: {type(exc).__name__}: {exc}")
             if done is not None:
                 return done
+            if answering_failure and not self.reply_submitted:
+                return self._decline(
+                    "; ".join(self.last_problems)
+                )  # the one retry made no submission
 
     def _handle(self, res: ChatResult) -> Prediction | None:
         if res.finish_reason in ("content_filter", "no_choices"):
@@ -177,6 +185,7 @@ class _Agent:
                 self._reply(call, IGNORED_EXTRA, usage)
             else:
                 submitted = submitted or is_submit
+                self.reply_submitted = submitted
                 final = self._tool_call(call, usage)
         if final is None and self.messages[-1].get("role") == "tool":
             self.messages[-1]["content"] += "\n" + self._left()

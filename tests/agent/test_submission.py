@@ -32,13 +32,13 @@ def test_submission_is_forced_for_the_last_two_replies_only() -> None:
 
 def test_first_forced_submission_fails_and_the_forced_retry_passes() -> None:
     p, client = run([*researching(6), submit(BAD, "s1"), submit(GOOD, "s2")])
-    assert client.tool_choices == [None] * 6 + [FORCE, FORCE]
+    assert client.tool_choices == [None] * 6 + [FORCE, "required"]
     assert p.status == "answered" and p.verify_ok is True and len(client.calls) == 8
     assert "Verification found problems" in json.dumps(client.calls[7])
 
 
-def test_an_earlier_failed_submission_does_not_change_when_forcing_starts() -> None:
-    p, client = run([submit(BAD, "s1"), *researching(5), submit(GOOD, "s2")])
+def test_an_earlier_malformed_submission_does_not_change_when_forcing_starts() -> None:
+    p, client = run([submit({"answer": "x"}, "s1"), *researching(5), submit(GOOD, "s2")])
     assert client.tool_choices == [None] * 6 + [FORCE]
     assert p.status == "answered" and p.verify_ok is True and len(client.calls) == 7
 
@@ -188,9 +188,9 @@ def test_a_long_last_research_reply_still_leaves_the_retry_a_call() -> None:
     client = ScriptedClient([*reads, long_reply, submit(BAD, "s1"), submit(GOOD, "s2")])
     p = run_agent(question_of(12_700), client, big, FakeIndex([(1, PAGES[1])]))  # type: ignore[arg-type]
     assert p.status == "answered" and p.verify_ok is True and len(client.calls) == 8
-    assert client.tool_choices == [None] * 6 + [FORCE, FORCE]
+    assert client.tool_choices == [None] * 6 + [FORCE, "required"]
     assert all(sent_size(client, i) <= TARGET for i in range(6))
-    assert sent_size(client, 7) > 16_000  # beyond the earlier 16,000 limit
+    assert sent_size(client, 7) > 15_000  # far beyond the research target; two tools are sent
     assert all(sent_size(client, i) <= LIMIT for i in (6, 7))
     retry = next(m for m in client.calls[7] if m.get("tool_call_id") == "s1")
     assert retry["content"].startswith("Verification found problems")
@@ -230,7 +230,7 @@ def test_config_hash_covers_the_new_texts_the_search_width_and_the_forcing_rule(
     texts = list(CONFIG["prompt"].values())
     for name in ("SYSTEM_PROMPT", "RETRY_TEMPLATE", "SUBMIT_NEXT", "LAST_REPLY", "REPLIES_LEFT"):
         assert getattr(prompts, name) in texts
-    assert CONFIG["version"] == "2" and CONFIG["tool_limits"]["search_k"] == 8
+    assert CONFIG["version"] == "3" and CONFIG["tool_limits"]["search_k"] == 8
     assert CONFIG["research_input_target_tokens"] == TARGET == 13_000
     assert CONFIG["max_problem_tokens"] == MAX_PROBLEM_TOKENS == 1_000
     assert CONFIG["limits"]["max_input_tokens"] == 24_000
@@ -245,7 +245,7 @@ def test_config_hash_covers_the_new_texts_the_search_width_and_the_forcing_rule(
         {**CONFIG, "prompt": prompt},
         {**CONFIG, "prompt": {**CONFIG["prompt"], "submit_next": "x"}},
         {**CONFIG, "tool_limits": {**CONFIG["tool_limits"], "search_k": 5}},
-        {**CONFIG, "version": "1"},
+        {**CONFIG, "version": "2"},
     ):
         assert hash_config(changed) != base
 

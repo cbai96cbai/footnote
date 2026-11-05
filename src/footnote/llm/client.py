@@ -119,7 +119,7 @@ class LLMClient:
         limits: CallLimits,
         tools: Sequence[Mapping[str, Any]] | None = None,
         response_schema: type[BaseModel] | None = None,
-        tool_choice: Mapping[str, Any] | None = None,
+        tool_choice: Mapping[str, Any] | str | None = None,
     ) -> ChatResult:
         price = self.price_for(deployment)
         counted = count_input_tokens(messages, tools, response_schema)
@@ -138,7 +138,9 @@ class LLMClient:
         if tools:
             kwargs["tools"] = list(tools)
         if tool_choice is not None:
-            kwargs["tool_choice"] = dict(tool_choice)
+            kwargs["tool_choice"] = (
+                tool_choice if isinstance(tool_choice, str) else dict(tool_choice)
+            )
         if response_schema is not None:
             kwargs["response_format"] = response_format_payload(response_schema)
         started = time.monotonic()
