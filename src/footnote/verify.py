@@ -4,7 +4,8 @@
    answered (not declined) question cites at least one quote.
 2. The answer's structured final value is a correct rounding of a number written in a cited quote,
    or of a logged calculation whose numbers come from cited quotes or from the exact results of
-   earlier such calculations (plus small fixed constants such as 2, 12, 365 or 100, with at least
+   earlier such calculations (a power may have a fractional exponent when its base is positive,
+   as in a compound growth rate; plus small fixed constants such as 2, 12, 365 or 100, with at least
    one cited or earlier-result number in every calculation). A figure counts with either sign: a
    value shown in parentheses or with a minus sign is the same figure. A calculation operand,
    whether a quoted number or an earlier result, may be scaled up by a power of 1,000 whatever
@@ -33,7 +34,7 @@ from footnote.answers import AgentAnswer, FinalValue
 from footnote.corpus.normalize import map_hyphen_marks, normalize_text
 from footnote.numbers import ParsedNumber, is_valid_rounding, parse_numbers
 
-VERIFY_VERSION = "3"  # changes whenever a rule or a problem message of the check changes
+VERIFY_VERSION = "4"  # changes whenever a rule or a problem message of the check changes
 _MAGNITUDES = (Decimal(1), Decimal("1e3"), Decimal("1e6"), Decimal("1e9"))
 # usd, count and other values are stated in the question's requested scale: any power of 1000
 # constants a calculation may use without a citation: averages, annualizing, day counts, units
@@ -95,9 +96,13 @@ def _literals(node: ast.AST, source: str, out: list[Decimal]) -> Decimal:
         if isinstance(node.op, ast.Div):
             return left / right
         if isinstance(node.op, ast.Pow):
-            if right != right.to_integral_value() or abs(right) > _MAX_POWER:
-                raise ValueError("exponent must be a whole number of at most 10")
-            return left ** int(right)
+            if abs(right) > _MAX_POWER:
+                raise ValueError("exponent must be at most 10 in size")
+            if right == right.to_integral_value():
+                return left ** int(right)
+            if left <= 0:
+                raise ValueError("a fractional exponent needs a positive base")
+            return left**right
     raise ValueError("only numbers, + - * / ** and parentheses are allowed")
 
 
@@ -213,8 +218,14 @@ def _not_found(quote: str, page_index: int, pages: dict[int, str]) -> str:
 
 
 def verify_answer(
-    answer: AgentAnswer, pages: dict[int, str], question: str, calcs: list[Calc]
+    answer: AgentAnswer,
+    pages: dict[int, str],
+    question: str,
+    calcs: list[Calc],
+    resubmit_only: bool = False,
 ) -> tuple[bool, list[str]]:
+    """`resubmit_only`: the reply after this check can only submit, so the advice must not ask
+    for a new calculation."""
     problems: list[str] = []
     cited: list[ParsedNumber] = []
     problems.extend(
@@ -242,12 +253,12 @@ def verify_answer(
             problems.append("no citations")
         fv = answer.final_value
         if fv is not None:
-            problems.extend(_final_value_problems(fv, cited, calcs))
+            problems.extend(_final_value_problems(fv, cited, calcs, resubmit_only))
     return (not problems, problems)
 
 
 def _final_value_problems(
-    fv: FinalValue, cited: list[ParsedNumber], calcs: list[Calc]
+    fv: FinalValue, cited: list[ParsedNumber], calcs: list[Calc], resubmit_only: bool
 ) -> list[str]:
     exponent = fv.value.as_tuple().exponent
     if (
@@ -265,8 +276,13 @@ def _final_value_problems(
         return ["final value out of range"]
     if supported:
         return []
+    fix = (
+        "resubmit with a final value that is a correct rounding of a quoted number or of a "
+        "calculate result you already ran"
+        if resubmit_only
+        else "compute it with calculate from cited figures, then submit that result rounded"
+    )
     return [
         f"final value {fv.value} is not a correct rounding of a number in a cited quote or of a "
-        "calculate result: compute it with calculate from cited figures, then submit that "
-        "result rounded"
+        f"calculate result: {fix}"
     ]

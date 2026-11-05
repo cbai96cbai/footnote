@@ -265,3 +265,35 @@ def test_number_in_quote_with_hyphen_mark_is_parsed_like_a_plain_hyphen() -> Non
         assert fv_check("1577", "usd", [quote], page=page)[0]
     # the mark between digits must not glue them into one number
     assert not fv_check("20192020", "usd", ["2019\x022020 net sales"], page=page)[0]
+
+
+def test_untraced_final_value_advice_matches_what_the_next_reply_can_do() -> None:
+    args = ("7.9", "percent", ["Net sales 1,577"], [])
+    _, free = fv_check(*args, page="Net sales 1,577")
+    answer = ans("x", ["Net sales 1,577"])
+    forced_answer = answer.model_copy(
+        update={"final_value": FinalValue(value=Decimal("7.9"), unit="percent")}
+    )
+    _, forced = verify_answer(forced_answer, {0: "Net sales 1,577"}, "?", [], resubmit_only=True)
+    assert free[0].endswith(
+        "compute it with calculate from cited figures, then submit that result rounded"
+    )
+    assert forced == [
+        "final value 7.9 is not a correct rounding of a number in a cited quote or of a "
+        "calculate result: resubmit with a final value that is a correct rounding of a quoted "
+        "number or of a calculate result you already ran"
+    ]
+
+
+def test_fractional_powers_of_positive_numbers_give_growth_rates() -> None:
+    cagr = "(1.5/1.2)**(1/3)-1"
+    first, second = evaluate_expression(cagr), evaluate_expression(cagr)
+    assert first.result == second.result and first.operands == second.operands
+    assert str(first.result)[:6] == "0.0772" and first.result.as_tuple().digits.__len__() <= 28
+    assert evaluate_expression("2**0.5").result.quantize(Decimal("1e-6")) == Decimal("1.414214")
+    from footnote.verify import _calc_is_sound
+
+    assert _calc_is_sound(first)
+    for bad in ("(-8)**(1/3)", "0**0.5", "2**10.5", "2**99"):
+        with pytest.raises(ValueError):
+            evaluate_expression(bad)
