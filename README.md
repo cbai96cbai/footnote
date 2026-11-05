@@ -176,7 +176,7 @@ measures correctness; the check measures traceability.
 ## Data and license
 
 - Questions and reference answers: the FinanceBench open sample (150 questions, 84 filings),
-  Patronus AI, [arXiv:2311.11944](https://arxiv.org/abs/2311.11944), licensed CC BY-NC 4.0 on
+  Patronus AI, [arXiv:2311.11944](https://arxiv.org/abs/2311.11944), licensed [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) on
   Hugging Face. Our reading is that non-commercial portfolio use fits that license; it is a reading,
   not a verified grant.
 - The filings are the companies' public documents. The PDFs are downloaded at run time from the
@@ -192,7 +192,10 @@ spaces. The grounding check runs against our extracted text, not the benchmark's
 
 ## Run locally
 
-Python 3.12 or 3.13 and [uv](https://docs.astral.sh/uv/).
+macOS or Linux (on Windows, use WSL: run files are locked with `fcntl`), Python 3.12 or 3.13
+and [uv](https://docs.astral.sh/uv/). The default tests download the pinned FinanceBench
+questions from Hugging Face; the `corpus` tests also need the filing PDFs and the `live` tests
+call Azure OpenAI, so both are excluded by default.
 
 ```
 uv sync
@@ -200,16 +203,16 @@ uv sync
 
 The code reads settings from the process environment only; it does not load `.env`. Copy
 `.env.example` as a checklist and export the variables in your shell (for example
-`set -a; source .env; set +a`). `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY` are required.
+`set -a; source .env; set +a`). `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY` are needed only for new runs (`footnote eval`).
 `FOOTNOTE_AGENT_DEPLOYMENT` and `FOOTNOTE_GRADER_DEPLOYMENT` default to `footnote-agent` and
 `footnote-grader`; `FOOTNOTE_CACHE` (PDFs and indexes) defaults to `~/.cache/footnote`. The code
 expects two Azure OpenAI deployments, gpt-5-mini for the agent and the baselines and gpt-4.1-mini
 for the grader; the prices in the code assume those models.
 
 ```
-uv run footnote eval --system agent --split gate --run-id agent-gate-1
-uv run footnote compare agent-gate-1 plain-gate-1      # paired difference with an interval
-uv run footnote failures agent-gate-1                  # failures by type
+uv run footnote compare test-agent test-longctx       # paired difference, from the committed runs
+uv run footnote failures test-agent                    # failures by type
+uv run footnote eval --system agent --split gate --run-id agent-gate-1   # a new run (needs Azure)
 uv run footnote site                                   # writes _site/
 ```
 

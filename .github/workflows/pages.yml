@@ -16,6 +16,9 @@ concurrency:
 
 jobs:
   deploy:
+    # Pages is switched on when the repository goes public: set the repository variable
+    # PAGES_ENABLED to true and choose GitHub Actions as the Pages source
+    if: vars.PAGES_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

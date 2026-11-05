@@ -30,7 +30,9 @@ def test_a_404_page_is_built_with_links_that_work_from_any_address(
     assert "Page not found" in html
     assert 'href="/footnote/style.css"' in html and 'href="/footnote/index.html"' in html
     hrefs = links_of(html)
-    assert all(h.startswith("/footnote/") or h.startswith("data:") for h in hrefs)
+    # site links carry the base path; absolute links to other sites work from any address
+    assert all(h.startswith(("/footnote/", "data:", "https://")) for h in hrefs)
+    assert any(h.startswith("/footnote/") for h in hrefs)
     other = tmp_path / "other"
     build_site(results, other, **inject, base_path="/site/")
     assert 'href="/site/style.css"' in (other / "404.html").read_text()
