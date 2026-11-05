@@ -13,9 +13,9 @@ from footnote.corpus.normalize import normalize_text
 _LETTER_HYPHEN = re.compile(r"(?<=[^\W\d_])-(?=[^\W\d_])")
 _MAX_HINTS = 3
 _HINT = "; this exact text is on page_index "
-_HINT_AT_END = re.compile(re.escape(_HINT) + r"(\d+(?:, \d+)*)$")
-_NOT_FOUND = re.compile(r"quote not found on page (\d+): ")
-_NO_PAGE = re.compile(r"cited page (\d+) is not in the filing")
+_HINT_AT_END = re.compile(re.escape(_HINT) + r"(-?\d+(?:, -?\d+)*)$")
+_NOT_FOUND = re.compile(r"quote not found on page (-?\d+): ")
+_NO_PAGE = re.compile(r"cited page (-?\d+) is not in the filing")
 
 
 def _squash(s: str) -> str:

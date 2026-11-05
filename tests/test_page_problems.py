@@ -63,7 +63,7 @@ def test_mixed_problems_parse_each_message_on_its_own() -> None:
     problems = verify_answer(ans, {0: "a", 1: QUOTE, 4: "b"}, "q", [])[1]
     parsed = [parse_page_problem(p) for p in problems]
     assert PageProblem(0, (1,), True) in parsed and PageProblem(8, (1,), False) in parsed
-    assert parsed.count(None) >= 1  # the too-long and not-found-for-page-4 messages
+    assert parsed.count(None) == 1  # only the too-long message is not a page problem
     assert [p for p in parsed if p and p.cited == 4] == [PageProblem(4, (), True)]
 
 
@@ -71,3 +71,8 @@ def test_other_problems_are_none() -> None:
     assert parse_page_problem("no citations") is None
     assert parse_page_problem("final value 3 is not a correct rounding of a number") is None
     assert parse_page_problem("calculation rejected: '1/0'") is None
+
+
+def test_a_negative_cited_index_from_an_old_record_is_parsed() -> None:
+    assert _parsed(QUOTE, -1, {0: QUOTE}) == [PageProblem(-1, (0,), page_exists=False)]
+    assert _parsed(QUOTE, -1, {0: "other"}) == [PageProblem(-1, (), page_exists=False)]

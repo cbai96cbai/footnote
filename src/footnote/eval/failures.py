@@ -68,11 +68,19 @@ def select_for_labeling(
 REASONS: dict[str, str] = {
     "declined": "the system declined to answer",
     "unsupported": "the system's own citation check rejected the answer",
-    "retrieval_miss": "none of the gold evidence pages was read",
-    "wrong_number": "the final number does not match the gold number",
+    "retrieval_miss": "none of the pages that hold the reference answer was read",
+    "wrong_number": "the final number does not match the reference number",
     "reasoning": "the right pages were read but the answer was graded incorrect",
     "error": "the run ended in an error",
 }
+
+
+def reason_for(system: str, failure: str) -> str:
+    """The fixed reason, worded for the system: one that reads no pages never "read the right"
+    ones."""
+    if failure == "reasoning" and system in SYSTEMS_WITHOUT_PAGES:
+        return "the answer was graded incorrect"
+    return REASONS[failure]
 
 
 def classify_run(
