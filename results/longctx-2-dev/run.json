@@ -1,0 +1,7 @@
+{
+ "family": "long-context",
+ "version": "2",
+ "config_hash": "d8bee7f291fb76627b6da5fb768c5ac16012d3707fd8df160d795bb463f7dac4",
+ "split": "dev",
+ "rubric_hash": "bd260d344b0989522c8411c6e17c135440d715895b23e9dcbb96466946c236ff"
+}

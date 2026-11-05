@@ -1,0 +1,22 @@
+{
+ "agent": {
+  "config_hash": "9f98093e1c6fbf913a34db9361e21c19978243f5bcc73696402cfc61759b32a3",
+  "run_id": "test-agent",
+  "state": "completed"
+ },
+ "long-context": {
+  "config_hash": "5bb750adca7f735fcdd593f5fb1ba8532a6ceeba06332b4e4deccc472fd5d1cf",
+  "run_id": "test-longctx",
+  "state": "completed"
+ },
+ "no-docs": {
+  "config_hash": "ffbba274a016b96ca36d5d366a2725cc5d48553a5cf2dd4f5000dec825f17910",
+  "run_id": "test-nodocs",
+  "state": "completed"
+ },
+ "plain-retrieval": {
+  "config_hash": "f89bcfbec5593fc6219b1d2eb355303081d0762f8f00bceb61e6c0fbc0277d86",
+  "run_id": "test-plain",
+  "state": "completed"
+ }
+}

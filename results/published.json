@@ -1,1 +1,12 @@
-[]
+[
+ "test-agent",
+ "test-longctx",
+ "test-plain",
+ "test-nodocs",
+ "agent-4-dev",
+ "agent-3-dev",
+ "agent-2-dev",
+ "longctx-2-dev",
+ "plain-2-dev",
+ "nodocs-2-dev"
+]

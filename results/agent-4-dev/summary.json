@@ -1,0 +1,29 @@
+{
+ "system": "agent",
+ "version": "4",
+ "config_hash": "9f98093e1c6fbf913a34db9361e21c19978243f5bcc73696402cfc61759b32a3",
+ "split": "dev",
+ "n": 93,
+ "correct": 69,
+ "n_graded": 93,
+ "grader_errors": 0,
+ "retriable_errors": 0,
+ "complete": true,
+ "accuracy": 0.7419354838709677,
+ "ci95": [
+  0.6511573058358929,
+  0.8461538461538461
+ ],
+ "coverage": 0.8817204301075269,
+ "answered_without_final_value": 37,
+ "declined": 11,
+ "errors": 0,
+ "cost_usd": 0.74744125,
+ "cost_per_question": 0.008037002688172043,
+ "mean_latency_s": 14.798867836714752,
+ "verified_rate": 1.0,
+ "rubric_hash": "bd260d344b0989522c8411c6e17c135440d715895b23e9dcbb96466946c236ff",
+ "git_sha": "bf05d7e72a0ebe65a6f8f7f9f7d2edd5ecf01161",
+ "tally_admitted": "9.3744",
+ "tally_settled": "0.74744125"
+}

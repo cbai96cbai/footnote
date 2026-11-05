@@ -1,0 +1,7 @@
+{
+ "family": "plain-retrieval",
+ "version": "2",
+ "config_hash": "f89bcfbec5593fc6219b1d2eb355303081d0762f8f00bceb61e6c0fbc0277d86",
+ "split": "test",
+ "rubric_hash": "bd260d344b0989522c8411c6e17c135440d715895b23e9dcbb96466946c236ff"
+}
