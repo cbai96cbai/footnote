@@ -105,3 +105,16 @@ def test_the_prompt_keeps_field_names_out_of_the_answer_text() -> None:
         "Write the answer text for a reader: state the figure in words and numbers, and never "
         "name fields such as final_value or citations." in " ".join(SYSTEM_PROMPT.split())
     )
+
+
+def test_the_free_or_forced_boundary_after_a_failure_is_three_versus_two_replies_left() -> None:
+    from test_submission import researching
+
+    # failure at reply 5 leaves 3 replies: the next is free
+    p, client = run([*researching(4), submit(HALF, "s1"), submit(GOOD, "s2")])
+    assert client.tool_choices[5] is None
+    # failure at reply 6 leaves 2 replies: the next is forced
+    p, client = run([*researching(5), submit(HALF, "s1"), submit(GOOD, "s2")])
+    assert client.tool_choices[6] == FORCE
+    assert "resubmit with a final value" in client.calls[6][-1]["content"]
+    assert client.tool_choices[5] is None

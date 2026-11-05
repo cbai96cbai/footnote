@@ -28,7 +28,16 @@ Numbers in the free-text answer are not checked; the grader measures whether the
 import ast
 import re
 from dataclasses import dataclass
-from decimal import Decimal, DivisionByZero, InvalidOperation, Overflow
+from decimal import (
+    Context,
+    Decimal,
+    DivisionByZero,
+    InvalidOperation,
+    Overflow,
+    Subnormal,
+    Underflow,
+    localcontext,
+)
 
 from footnote.answers import AgentAnswer, FinalValue
 from footnote.corpus.normalize import map_hyphen_marks, normalize_text
@@ -47,6 +56,14 @@ _FINAL_MAGNITUDES = tuple(Decimal(10) ** e for e in range(-9, 10, 3))
 MAX_QUOTE_CHARS = 400  # the site's excerpt cap; a longer quote could "support" a whole page
 _MAX_POWER = 10
 _MAX_EXPRESSION_CHARS = 200
+# every calculation runs in this context, whatever the ambient one: a value that overflows,
+# underflows or is undefined is an error, never an exact zero or infinity
+_CALC_CONTEXT = Context(
+    prec=28,
+    Emin=-999999,
+    Emax=999999,
+    traps=[Overflow, Underflow, Subnormal, InvalidOperation, DivisionByZero],
+)
 
 
 @dataclass(frozen=True)
@@ -115,12 +132,15 @@ def evaluate_expression(expression: str) -> Calc:
         text = text.strip()
         tree = ast.parse(text, mode="eval")
         operands: list[Decimal] = []
-        result = _literals(tree.body, text, operands)
+        with localcontext(_CALC_CONTEXT):
+            result = _literals(tree.body, text, operands)
     except (
         SyntaxError,
         RecursionError,
         MemoryError,
         Overflow,
+        Underflow,
+        Subnormal,
         DivisionByZero,
         InvalidOperation,
         ZeroDivisionError,
