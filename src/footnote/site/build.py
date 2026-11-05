@@ -20,6 +20,9 @@ from footnote.site.runs import Run, load_runs, split_runs
 
 __all__ = ["MARKER", "build_site"]
 HERE = Path(__file__).parent
+# where the site is served (GitHub Pages project site); only 404.html needs it, because the
+# host serves that one page for any missing path and relative links would not resolve
+BASE_PATH = "/footnote/"
 PAPER = [
     ("Shared vector store", 19),
     ("One vector store per filing", 50),
@@ -84,6 +87,7 @@ def build_site(
     link_status: dict[str, Any] | None = None,
     featured: list[str] | None = None,
     failures: list[dict[str, str]] | None = None,
+    base_path: str = BASE_PATH,
 ) -> None:
     by_id = {q.id: q for q in (questions if questions is not None else load_questions())}
     gold = gold if gold is not None else load_gold()
@@ -108,10 +112,10 @@ def build_site(
         "failure_tables": failure_tables(runs, pages, gold),
         "has_runs": bool(runs),
     }
-    replace_output(out_dir, lambda target: _write_pages(target, site))
+    replace_output(out_dir, lambda target: _write_pages(target, site, base_path))
 
 
-def _write_pages(out_dir: Path, site: dict[str, Any]) -> None:
+def _write_pages(out_dir: Path, site: dict[str, Any], base_path: str) -> None:
     env = _env()
     shutil.copy(HERE / "style.css", out_dir / "style.css")
     (out_dir / "q").mkdir(exist_ok=True)
@@ -147,4 +151,4 @@ def _write_pages(out_dir: Path, site: dict[str, Any]) -> None:
         has_runs=site["has_runs"],
     )
     write("about.html", "about.html", "", has_test=bool(test))
-    write("404.html", "not_found.html", "/")
+    write("404.html", "not_found.html", base_path)

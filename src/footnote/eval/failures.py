@@ -96,8 +96,8 @@ def classify_run(
     return out
 
 
-def failures_markdown(run_id: str, types: dict[str, FailureType]) -> str:
+def failures_markdown(run_id: str, system: str, types: dict[str, FailureType]) -> str:
     """Question id, type and a fixed one-line reason; no document or gold text."""
     lines = [f"# Failures in {run_id}", "", "| question | type | reason |", "| --- | --- | --- |"]
-    lines += [f"| {q} | {t} | {REASONS[t]} |" for q, t in sorted(types.items())]
+    lines += [f"| {q} | {t} | {reason_for(system, t)} |" for q, t in sorted(types.items())]
     return "\n".join(lines) + "\n"

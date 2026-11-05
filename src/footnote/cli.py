@@ -107,8 +107,10 @@ def failures_cmd(run_id: str, results_dir: ResultsDir = DEFAULT_RESULTS) -> None
     if not verdicts:
         typer.echo(f"{run_id}: no verdicts found", err=True)
         raise typer.Exit(1)
-    types = classify_run(read_predictions(run_dir), verdicts, load_gold())
-    (run_dir / "failures.md").write_text(failures_markdown(run_id, types), encoding="utf-8")
+    preds = read_predictions(run_dir)
+    types = classify_run(preds, verdicts, load_gold())
+    system = next(iter(preds.values())).system if preds else ""
+    (run_dir / "failures.md").write_text(failures_markdown(run_id, system, types), encoding="utf-8")
     for t in FAILURE_TYPES:
         typer.echo(f"{t:15} {sum(x == t for x in types.values())}")
     typer.echo(f"{'total':15} {len(types)} of {len(verdicts)} questions; wrote failures.md")

@@ -166,3 +166,12 @@ def test_failures_command_writes_file_without_text(tmp_path: Path, monkeypatch) 
     text = (run / "failures.md").read_text()
     assert "q1" in text and "q2" in text and "q3" not in text
     assert "SECRET" not in text and json.dumps(text)
+
+
+def test_failures_markdown_words_reasons_for_the_run_system() -> None:
+    from footnote.eval.failures import failures_markdown
+
+    types = {"q1": "reasoning"}
+    assert "the answer was graded incorrect" in failures_markdown("r", "no-docs", types)  # type: ignore[arg-type]
+    plain = failures_markdown("r", "agent", types)  # type: ignore[arg-type]
+    assert "the right pages were read but the answer was graded incorrect" in plain

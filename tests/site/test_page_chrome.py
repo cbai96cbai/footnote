@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from crawl import links_of
 from support import publish, write_run
 
 from footnote.site.build import build_site
@@ -27,7 +28,14 @@ def test_a_404_page_is_built_with_links_that_work_from_any_address(
 ) -> None:
     html = (_out(results, tmp_path, inject) / "404.html").read_text()
     assert "Page not found" in html
-    assert 'href="/style.css"' in html and 'href="/index.html"' in html
+    assert 'href="/footnote/style.css"' in html and 'href="/footnote/index.html"' in html
+    hrefs = links_of(html)
+    assert all(h.startswith("/footnote/") or h.startswith("data:") for h in hrefs)
+    other = tmp_path / "other"
+    build_site(results, other, **inject, base_path="/site/")
+    assert 'href="/site/style.css"' in (other / "404.html").read_text()
+    index = (_out(results, tmp_path / "x", inject) / "index.html").read_text()
+    assert "/footnote/" not in index  # every other page keeps relative links
 
 
 def test_historical_context_is_a_small_labelled_table(
